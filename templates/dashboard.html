@@ -1,0 +1,521 @@
+<!-- templates/dashboard.html -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartFarm Vision - Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50">
+    <div class="flex h-screen">
+        <!-- Sidebar -->
+        <div class="w-64 bg-green-700 text-white">
+            <div class="p-6">
+                <div class="flex items-center space-x-3 mb-8">
+                    <img src="{{ url_for('static', filename='images/logo2.png') }}" class="h-10 w-10">
+                    <h1 class="text-2xl font-bold">SmartFarm</h1>
+                </div>
+                <nav class="space-y-2">
+                    <a href="/dashboard" class="flex items-center space-x-3 bg-green-800 text-white p-3 rounded-lg">
+                        <i class="fas fa-home w-6"></i>
+                        <span>Dashboard</span>
+                    </a>
+                    <a href="{{ url_for('barns_page') }}" class="flex items-center space-x-3 hover:bg-green-800 p-3 rounded-lg">
+                        <i class="fas fa-warehouse w-6"></i>
+                        <span>Barns</span>
+                    </a>
+                    <a href="/live" class="flex items-center space-x-3 hover:bg-green-800 p-3 rounded-lg">
+                        <i class="fas fa-camera w-6"></i>
+                        <span>Live</span>
+                    </a>
+                    <a href="/analytics" class="flex items-center space-x-3 hover:bg-green-800 p-3 rounded-lg">
+                        <i class="fas fa-chart-line w-6"></i>
+                        <span>Analytics</span>
+                    </a>
+                    <a href="/alerts" class="flex items-center space-x-3 hover:bg-green-800 p-3 rounded-lg">
+                        <i class="fas fa-bell w-6"></i>
+                        <span>Alerts</span>
+                    </a>
+                    <a href="/settings" class="flex items-center space-x-3 hover:bg-green-800 p-3 rounded-lg">
+                        <i class="fas fa-cog w-6"></i>
+                        <span>Settings</span>
+                    </a>
+                </nav>
+            </div>
+            <div class="p-6 mt-auto">
+                <div class="flex items-center space-x-3">
+                    <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" class="h-10 w-10 rounded-full">
+                    <div>
+                        <div class="font-medium">{{ session.get('first_name', '') }} {{ session.get('last_name', '') }}</div>
+                        <div class="text-sm opacity-75">Farm Manager</div></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="flex-1 overflow-y-auto">
+            <!-- Top Bar -->
+            <div class="bg-white shadow-sm">
+                <div class="flex justify-between items-center p-4">
+                    <div>
+                        <h1 class="text-2xl font-bold text-gray-800">Dashboard Overview</h1>
+                        <p class="text-gray-600">Welcome back! Here's what's happening in your farm.</p>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <button onclick="addNewBarn()" 
+                        class="flex items-center space-x-2 bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
+                    </svg>
+                    <span>Add Barn</span>
+                </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Dashboard Content -->
+            <div class="p-6">
+                <!-- Quick Stats -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+                    <div class="bg-white rounded-xl shadow-sm p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="bg-blue-100 p-3 rounded-lg">
+                                <i class="fas fa-piggy-bank text-blue-600 text-xl"></i>
+                            </div>
+                            <span class="text-green-500 flex items-center">
+                                <i class="fas fa-arrow-up mr-1"></i>
+                                12%
+                            </span>
+                        </div>
+                        <h3 class="text-gray-500 text-sm">Total Animals</h3>
+                        <p class="text-2xl font-bold text-gray-800" id="total-animals-count">0</p>
+                        <p class="text-gray-400 text-sm mt-2">+123 from last week</p>
+                    </div>
+                    
+                    <div class="bg-white rounded-xl shadow-sm p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="bg-green-100 p-3 rounded-lg">
+                                <i class="fas fa-weight-scale text-green-600 text-xl"></i>
+                            </div>
+                            <span class="text-red-500 flex items-center">
+                                <i class="fas fa-arrow-down mr-1"></i>
+                                3%
+                            </span>
+                        </div>
+                        <h3 class="text-gray-500 text-sm">Average Weight</h3>
+                        <p class="text-2xl font-bold text-gray-800" id="avg-weight-value">0 kg</p>
+                        <p class="text-gray-400 text-sm mt-2">-2.3 kg from last month</p>
+                    </div>
+                    
+                    <div class="bg-white rounded-xl shadow-sm p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="bg-purple-100 p-3 rounded-lg">
+                                <i class="fas fa-heart text-purple-600 text-xl"></i>
+                            </div>
+                            <span class="text-green-500 flex items-center">
+                                <i class="fas fa-arrow-up mr-1"></i>
+                                8%
+                            </span>
+                        </div>
+                        <h3 class="text-gray-500 text-sm">Health Score</h3>
+                        <p class="text-2xl font-bold text-gray-800" id="health-score-value" >0%</p>
+                        <p class="text-gray-400 text-sm mt-2">+5% from last week</p>
+                    </div>
+                    
+                    <div class="bg-white rounded-xl shadow-sm p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="bg-red-100 p-3 rounded-lg">
+                                <i class="fas fa-exclamation-triangle text-red-600 text-xl"></i>
+                            </div>
+                        </div>
+                        <h3 class="text-gray-500 text-sm">Active Alerts</h3>
+                        <p class="text-2xl font-bold text-gray-800">7</p>
+                        <p class="text-gray-400 text-sm mt-2">3 high priority</p>
+                    </div>
+                </div>
+
+                <!-- Charts Row -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                    <div class="bg-white rounded-xl shadow-sm p-6">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-4">Weight Distribution</h3>
+                        <canvas id="weightChart" height="300"></canvas>
+                    </div>
+                    
+                    <div class="bg-white rounded-xl shadow-sm p-6">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-4">Emotional States</h3>
+                        <canvas id="emotionsChart" height="300"></canvas>
+                    </div>
+                </div>
+
+                <!-- Barns Overview -->
+                <!-- Versión con datos dinámicos -->
+<div class="bg-white rounded-xl shadow-sm p-6">
+    <div class="flex justify-between items-center mb-6">
+        <h3 class="text-lg font-semibold text-gray-800">Barns Overview</h3>
+        <a href="/barns" class="text-blue-600 hover:text-blue-700">View All</a>
+    </div>
+    
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {% for barn in barns %}
+        <div class="border rounded-lg p-4 hover:shadow-md transition-shadow">
+            <div class="flex justify-between items-start mb-4">
+                <div>
+                    <h4 class="font-semibold text-gray-800">{{barn.name}}</h4>
+                    <p class="text-gray-500 text-sm">{{barn.total_animals}} animals</p>
+                </div>
+                <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">
+                    {{barn.status}}
+                </span>
+            </div>
+            
+            <div class="space-y-4">
+                <div class="flex justify-between items-center text-sm">
+                    <span class="text-gray-600">Average Weight</span>
+                    <span class="font-medium">{{barn.avg_weight}} kg</span>
+                </div>
+                <div class="flex justify-between items-center text-sm">
+                    <span class="text-gray-600">Average Age</span>
+                    <span class="font-medium">{{barn.avg_age}} months</span>
+                </div>
+                <div class="flex justify-between items-center text-sm">
+                    <span class="text-gray-600">Health Score</span>
+                    <div class="flex items-center">
+                        <span class="font-medium">{{barn.health_score}}%</span>
+                        <div class="w-2 h-2 rounded-full ml-2
+                            {% if barn.health_score >= 90 %}bg-green-500
+                            {% elif barn.health_score >= 70 %}bg-yellow-500
+                            {% else %}bg-red-500{% endif %}">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <a href="/barn/{{barn.id}}" 
+               class="block w-full mt-4 text-center bg-blue-50 text-blue-600 px-4 py-2 rounded hover:bg-blue-100 transition-colors">
+                View Details
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Dashboard JavaScript
+document.addEventListener('DOMContentLoaded', function() {
+    // Function to load all barns
+    function loadBarns() {
+        fetch('/api/barns', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.barns) {
+                updateBarnsDisplay(data.barns);
+                updateDashboardStats(data.barns);
+            }
+        })
+        .catch(error => {
+            console.error('Error loading barns:', error);
+            showAlert('Error loading barns data', 'error');
+        });
+    }
+
+    // Function to update barns display
+    function updateBarnsDisplay(barns) {
+        const barnsContainer = document.querySelector('.grid.grid-cols-1.md\\:grid-cols-2.lg\\:grid-cols-3.gap-6');
+        if (!barnsContainer) return;
+
+        barnsContainer.innerHTML = barns.map(barn => `
+            <div class="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <h4 class="font-semibold text-gray-800">${barn.name}</h4>
+                        <p>${barn.current_count} animals</p>
+                    </div>
+                    <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">
+                        ${barn.status}
+                    </span>
+                </div>
+
+                <div class="space-y-4">
+                    <div class="flex justify-between items-center text-sm">
+                        <span class="text-gray-600">Average Weight</span>
+                        <span class="font-medium">${barn.avg_weight} kg</span>
+                    </div>
+
+                    <div class="flex justify-between items-center text-sm">
+                        <span class="text-gray-600">Average Age</span>
+                        <span class="font-medium">${barn.avg_age} months</span>
+                    </div>
+
+                    <div class="flex justify-between items-center text-sm">
+                        <span class="text-gray-600">Health Score</span>
+                        <div class="flex items-center">
+                            <span class="font-medium">${barn.health_score}%</span>
+                            <span class="w-2 h-2 rounded-full ml-2 ${getHealthScoreColor(barn.health_score)}"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <button onclick="viewBarnDetails('${barn.id}')" 
+                        class="block w-full mt-4 text-center bg-blue-50 text-blue-600 px-4 py-2 rounded hover:bg-blue-100 transition-colors">
+                    View Details
+                </button>
+            </div>
+        `).join('');
+    }
+
+    // Function to update dashboard statistics
+    function updateDashboardStats(barns) {
+        // Calculate total animals
+        const totalAnimals = barns.reduce((sum, barn) => sum + (barn.current_count || 0), 0);
+        
+        // Calculate average weight
+        const totalWeight = barns.reduce((sum, barn) => sum + (barn.avg_weight || 0), 0);
+        const avgWeight = barns.length ? (totalWeight / barns.length).toFixed(1) : 0;
+        
+        // Calculate average health score
+        const totalHealth = barns.reduce((sum, barn) => sum + (barn.health_score || 0), 0);
+        const avgHealth = barns.length ? (totalHealth / barns.length).toFixed(1) : 0;
+
+        // Update the stats in the UI
+        document.querySelector('#total-animals-count').textContent = totalAnimals;
+        document.querySelector('#avg-weight-value').textContent = `${avgWeight} kg`;
+        document.querySelector('#health-score-value').textContent = `${avgHealth}%`;
+    }
+
+    // Function to show alerts
+    function showAlert(message, type = 'info') {
+        const alertContainer = document.createElement('div');
+        alertContainer.className = `fixed top-4 right-4 p-4 rounded-md ${
+            type === 'error' ? 'bg-red-100 text-red-700' : 
+            type === 'success' ? 'bg-green-100 text-green-700' : 
+            'bg-blue-100 text-blue-700'
+        }`;
+        alertContainer.textContent = message;
+
+        document.body.appendChild(alertContainer);
+        setTimeout(() => alertContainer.remove(), 3000);
+    }
+
+    // Function to get health score color
+    function getHealthScoreColor(score) {
+        if (score >= 90) return 'bg-green-500';
+        if (score >= 70) return 'bg-yellow-500';
+        return 'bg-red-500';
+    }
+
+    // Function to view barn details
+    function viewBarnDetails(barnId) {
+        fetch(`/api/barns/${barnId}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            // Here you would typically open a modal or navigate to a barn details page
+            console.log('Barn details:', data);
+        })
+        .catch(error => {
+            console.error('Error loading barn details:', error);
+            showAlert('Error loading barn details', 'error');
+        });
+    }
+
+    // Function to add a new barn
+    window.addNewBarn = function() {
+        const barnName = prompt('Enter barn name:');
+        if (!barnName) return;
+
+        const capacity = parseInt(prompt('Enter barn capacity:'));
+        if (isNaN(capacity)) return;
+
+        fetch('/api/barns', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                name: barnName,
+                capacity: capacity
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.barn_id) {
+                showAlert('Barn created successfully', 'success');
+                loadBarns(); // Reload barns display
+            } else {
+                showAlert('Error creating barn', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error creating barn:', error);
+            showAlert('Error creating barn', 'error');
+        });
+    };
+
+    // Initial load of barns
+    loadBarns();
+
+    // Refresh data every 5 minutes
+    setInterval(loadBarns, 300000);
+});
+
+
+
+        
+
+    function updateCharts(barns) {
+    // Weight history chart
+      updateWeightChart(barns);
+    
+    // Emotions/Status chart
+      updateEmotionsChart(barns);
+}
+
+// Function to update weight chart
+function updateWeightChart(barns) {
+    const weightCtx = document.getElementById('weightChart').getContext('2d');
+
+// Get the last 6 months of weight data
+    // In a real application, you would fetch this from your barn_metrics_history collection
+    const weightData = {
+        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+        data: barns.map(barn => barn.avg_weight || 0)
+    };
+
+    new Chart(weightCtx, {
+        type: 'line',
+        data: {
+            labels: weightData.labels,
+            datasets: [{
+                label: 'Average Weight (kg)',
+                data: weightData.data,
+                borderColor: 'rgb(59, 130, 246)',
+                tension: 0.4,
+                fill: true,
+                backgroundColor: 'rgba(59, 130, 246, 0.1)'
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: false
+                }
+            }
+        }
+    });
+}
+
+// Function to update emotions chart
+function updateEmotionsChart(barns) {
+    const emotionsCtx = document.getElementById('emotionsChart').getContext('2d');
+    
+    // Calculate animal status distribution
+    const statusCounts = {
+        Happy: 0,
+        Neutral: 0,
+        Stressed: 0,
+        Sick: 0
+    };
+
+    barns.forEach(barn => {
+        const total = barn.current_count || 0;
+        if (barn.health_score >= 90) {
+            statusCounts.Happy += total * 0.8;
+            statusCounts.Neutral += total * 0.2;
+        } else if (barn.health_score >= 70) {
+            statusCounts.Happy += total * 0.4;
+            statusCounts.Neutral += total * 0.4;
+            statusCounts.Stressed += total * 0.2;
+        } else {
+            statusCounts.Stressed += total * 0.6;
+            statusCounts.Sick += total * 0.4;
+        }
+    });
+
+    new Chart(emotionsCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Happy', 'Neutral', 'Stressed', 'Sick'],
+            datasets: [{
+                data: [
+                    statusCounts.Happy,
+                    statusCounts.Neutral,
+                    statusCounts.Stressed,
+                    statusCounts.Sick
+                ],
+                backgroundColor: [
+                    'rgba(34, 197, 94, 0.8)',
+                    'rgba(59, 130, 246, 0.8)',
+                    'rgba(249, 115, 22, 0.8)',
+                    'rgba(239, 68, 68, 0.8)'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+}
+
+// Update the loadBarns function to include chart updates
+function loadBarns() {
+    fetch('/api/barns', {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.barns) {
+            updateBarnsDisplay(data.barns);
+            updateDashboardStats(data.barns);
+            updateCharts(data.barns); // Add this line
+        }
+    })
+    .catch(error => {
+        console.error('Error loading barns:', error);
+        showAlert('Error loading barns data', 'error');
+    });
+}
+
+// Add a function to fetch historical weight data
+async function fetchWeightHistory() {
+    try {
+        const response = await fetch('/api/barns/weight-history');
+        const data = await response.json();
+        return data.history;
+    } catch (error) {
+        console.error('Error fetching weight history:', error);
+        return null;
+    }
+}
+
+    </script>
+</body>
+</html>

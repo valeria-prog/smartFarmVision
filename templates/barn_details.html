@@ -1,0 +1,324 @@
+<!-- templates/barn_details.html -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartFarm Vision - Barn Details</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50">
+    <div class="flex h-screen">
+        <div class="w-64 bg-green-700 text-white">
+            <div class="p-6">
+                <div class="flex items-center space-x-3 mb-8">
+                    <img src="{{ url_for('static', filename='images/logo2.png') }}" class="h-10 w-10">
+                    <h1 class="text-2xl font-bold">SmartFarm</h1>
+                </div>
+                <nav class="space-y-2">
+                    <a href="/dashboard" class="flex items-center space-x-3 bg-green-800 text-white p-3 rounded-lg">
+                        <i class="fas fa-home w-6"></i>
+                        <span>Dashboard</span>
+                    </a>
+                    <a href="/barns" class="flex items-center space-x-3 hover:bg-green-800 p-3 rounded-lg">
+                        <i class="fas fa-warehouse w-6"></i>
+                        <span>Barns</span>
+                    </a>
+                    <a href="/analytics" class="flex items-center space-x-3 hover:bg-green-800 p-3 rounded-lg">
+                        <i class="fas fa-chart-line w-6"></i>
+                        <span>Analytics</span>
+                    </a>
+                    <a href="/alerts" class="flex items-center space-x-3 hover:bg-green-800 p-3 rounded-lg">
+                        <i class="fas fa-bell w-6"></i>
+                        <span>Alerts</span>
+                    </a>
+                    <a href="/settings" class="flex items-center space-x-3 hover:bg-green-800 p-3 rounded-lg">
+                        <i class="fas fa-cog w-6"></i>
+                        <span>Settings</span>
+                    </a>
+                </nav>
+            </div>
+            <div class="p-6 mt-auto">
+                <div class="flex items-center space-x-3">
+                    <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" class="h-10 w-10 rounded-full">
+                    <div>
+                        <p class="font-semibold">John Doe</p>
+                        <p class="text-sm text-gray-300">Farm Manager</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="flex-1 overflow-y-auto">
+            <!-- Top Bar -->
+            <div class="bg-white shadow-sm">
+                <div class="flex justify-between items-center p-4">
+                    <div class="flex items-center space-x-4">
+                        <a href="/dashboard" class="text-gray-500 hover:text-gray-700">
+                            <i class="fas fa-arrow-left"></i>
+                        </a>
+                        <div>
+                            <h1 class="text-2xl font-bold text-gray-800">Barn #{{barn.id}} Details</h1>
+                            <p class="text-gray-600">Last updated: {{barn.last_updated}}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <button class="text-gray-500 hover:text-gray-700 relative">
+                            <i class="fas fa-bell text-xl"></i>
+                            <span class="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-4 h-4 rounded-full flex items-center justify-center">
+                                3
+                            </span>
+                        </button>
+                        <button class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600">
+                            <i class="fas fa-download mr-2"></i>
+                            Export Data
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Content -->
+            <div class="p-6">
+                <!-- Quick Stats -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+                    <div class="bg-white rounded-xl shadow-sm p-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-gray-500 text-sm">Total Animals</p>
+                                <h3 class="text-2xl font-bold">32</h3>
+                                <p class="text-green-500 text-sm flex items-center mt-1">
+                                    <i class="fas fa-arrow-up mr-1"></i>
+                                    +2 this week
+                                </p>
+                            </div>
+                            <div class="bg-blue-100 p-3 rounded-lg">
+                                <i class="fas fa-pig text-blue-600 text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-xl shadow-sm p-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-gray-500 text-sm">Average Weight</p>
+                                <h3 class="text-2xl font-bold">73.2 kg</h3>
+                                <p class="text-red-500 text-sm flex items-center mt-1">
+                                    <i class="fas fa-arrow-down mr-1"></i>
+                                    -1.2 kg
+                                </p>
+                            </div>
+                            <div class="bg-green-100 p-3 rounded-lg">
+                                <i class="fas fa-weight-scale text-green-600 text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-xl shadow-sm p-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-gray-500 text-sm">Health Score</p>
+                                <h3 class="text-2xl font-bold">96%</h3>
+                                <p class="text-green-500 text-sm flex items-center mt-1">
+                                    <i class="fas fa-arrow-up mr-1"></i>
+                                    +3%
+                                </p>
+                            </div>
+                            <div class="bg-purple-100 p-3 rounded-lg">
+                                <i class="fas fa-heart text-purple-600 text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-xl shadow-sm p-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-gray-500 text-sm">Temperature</p>
+                                <h3 class="text-2xl font-bold">24°C</h3>
+                                <p class="text-gray-500 text-sm mt-1">Optimal</p>
+                            </div>
+                            <div class="bg-yellow-100 p-3 rounded-lg">
+                                <i class="fas fa-temperature-half text-yellow-600 text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts Section -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                    <div class="bg-white rounded-xl shadow-sm p-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-semibold text-gray-800">Weight Trends</h3>
+                            <select class="text-sm border rounded-lg px-2 py-1">
+                                <option>Last 7 days</option>
+                                <option>Last 30 days</option>
+                                <option>Last 90 days</option>
+                            </select>
+                        </div>
+                        <canvas id="weightTrendChart" height="300"></canvas>
+                    </div>
+
+                    <div class="bg-white rounded-xl shadow-sm p-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-semibold text-gray-800">Emotional States</h3>
+                            <select class="text-sm border rounded-lg px-2 py-1">
+                                <option>Today</option>
+                                <option>This Week</option>
+                                <option>This Month</option>
+                            </select>
+                        </div>
+                        <canvas id="emotionalStatesChart" height="300"></canvas>
+                    </div>
+                </div>
+
+                <!-- Recent Activity & Animals List -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Recent Activity -->
+                    <div class="lg:col-span-1 bg-white rounded-xl shadow-sm p-6">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-4">Recent Activity</h3>
+                        <div class="space-y-4">
+                            <div class="flex items-start space-x-3">
+                                <div class="bg-blue-100 p-2 rounded">
+                                    <i class="fas fa-weight-scale text-blue-600"></i>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-medium">Weight Update</p>
+                                    <p class="text-xs text-gray-500">Average weight increased by 2.3kg</p>
+                                    <p class="text-xs text-gray-400">2 hours ago</p>
+                                </div>
+                            </div>
+                            <div class="flex items-start space-x-3">
+                                <div class="bg-yellow-100 p-2 rounded">
+                                    <i class="fas fa-exclamation-triangle text-yellow-600"></i>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-medium">Alert Triggered</p>
+                                    <p class="text-xs text-gray-500">Abnormal behavior detected</p>
+                                    <p class="text-xs text-gray-400">5 hours ago</p>
+                                </div>
+                            </div>
+                            <div class="flex items-start space-x-3">
+                                <div class="bg-green-100 p-2 rounded">
+                                    <i class="fas fa-check text-green-600"></i>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-medium">Health Check</p>
+                                    <p class="text-xs text-gray-500">All animals passed health inspection</p>
+                                    <p class="text-xs text-gray-400">1 day ago</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Animals List -->
+                    <div class="lg:col-span-2 bg-white rounded-xl shadow-sm p-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-semibold text-gray-800">Animals</h3>
+                            <button class="text-blue-600 hover:text-blue-700 text-sm">View All</button>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full">
+                                <thead>
+                                    <tr class="text-left text-sm text-gray-500">
+                                        <th class="pb-3">ID</th>
+                                        <th class="pb-3">Weight</th>
+                                        <th class="pb-3">Age</th>
+                                        <th class="pb-3">Health</th>
+                                        <th class="pb-3">Status</th>
+                                        <th class="pb-3"></th>
+                                    </tr>
+                                </thead>
+                                <tbody class="text-sm">
+                                    {% for i in range(5) %}
+                                    <tr class="border-t">
+                                        <td class="py-3">#{{ '%04d' % (i + 1) }}</td>
+                                        <td class="py-3">75.3 kg</td>
+                                        <td class="py-3">8 months</td>
+                                        <td class="py-3">
+                                            <span class="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs">
+                                                Healthy
+                                            </span>
+                                        </td>
+                                        <td class="py-3">
+                                            <div class="flex items-center">
+                                                <div class="w-2 h-2 rounded-full bg-green-500 mr-2"></div>
+                                                Active
+                                            </div>
+                                        </td>
+                                        <td class="py-3">
+                                            <button class="text-blue-600 hover:text-blue-700">
+                                                View Details
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Gráfico de tendencia de peso
+        const weightCtx = document.getElementById('weightTrendChart').getContext('2d');
+        new Chart(weightCtx, {
+            type: 'line',
+            data: {
+                labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                datasets: [{
+                    label: 'Average Weight (kg)',
+                    data: [71.2, 72.1, 72.8, 73.0, 73.2, 73.5, 73.2],
+                    borderColor: 'rgb(59, 130, 246)',
+                    tension: 0.4,
+                    fill: true,
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)'
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: false
+                    }
+                }
+            }
+        });
+
+        // Gráfico de estados emocionales
+        const emotionCtx = document.getElementById('emotionalStatesChart').getContext('2d');
+        new Chart(emotionCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Happy', 'Neutral', 'Stressed', 'Sick'],
+                datasets: [{
+                    data: [45, 30, 15, 10],
+                    backgroundColor: [
+                        'rgba(34, 197, 94, 0.8)',
+                        'rgba(59, 130, 246, 0.8)',
+                        'rgba(249, 115, 22, 0.8)',
+                        'rgba(239, 68, 68, 0.8)'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>

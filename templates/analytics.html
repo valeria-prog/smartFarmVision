@@ -1,0 +1,482 @@
+<!-- templates/analytics.html -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartFarm Vision - Analytics</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50">
+    <div class="flex h-screen">
+        <div class="w-64 bg-green-700 text-white">
+            <div class="p-6">
+                <div class="flex items-center space-x-3 mb-8">
+                    <img src="{{ url_for('static', filename='images/logo2.png') }}" class="h-10 w-10">
+                    <h1 class="text-2xl font-bold">SmartFarm</h1>
+                </div>
+                <nav class="space-y-2">
+                    <a href="/dashboard" class="flex items-center space-x-3 bg-green-800 text-white p-3 rounded-lg">
+                        <i class="fas fa-home w-6"></i>
+                        <span>Dashboard</span>
+                    </a>
+                    <a href="/barns" class="flex items-center space-x-3 hover:bg-green-800 p-3 rounded-lg">
+                        <i class="fas fa-warehouse w-6"></i>
+                        <span>Barns</span>
+                    </a>
+                    <a href="/analytics" class="flex items-center space-x-3 hover:bg-green-800 p-3 rounded-lg">
+                        <i class="fas fa-chart-line w-6"></i>
+                        <span>Analytics</span>
+                    </a>
+                    <a href="/alerts" class="flex items-center space-x-3 hover:bg-green-800 p-3 rounded-lg">
+                        <i class="fas fa-bell w-6"></i>
+                        <span>Alerts</span>
+                    </a>
+                    <a href="/settings" class="flex items-center space-x-3 hover:bg-green-800 p-3 rounded-lg">
+                        <i class="fas fa-cog w-6"></i>
+                        <span>Settings</span>
+                    </a>
+                </nav>
+            </div>
+            <div class="p-6 mt-auto">
+                <div class="flex items-center space-x-3">
+                    <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" class="h-10 w-10 rounded-full">
+                    <div>
+                        <p class="font-semibold">John Doe</p>
+                        <p class="text-sm text-gray-300">Farm Manager</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="flex-1 overflow-y-auto">
+            <!-- Top Bar -->
+            <div class="bg-white shadow-sm">
+                <div class="flex justify-between items-center p-4">
+                    <div>
+                        <h1 class="text-2xl font-bold text-gray-800">Analytics Overview</h1>
+                        <p class="text-gray-600">Comprehensive farm analytics and insights</p>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <div class="flex items-center space-x-2 bg-gray-100 rounded-lg px-3 py-2">
+                            <i class="fas fa-calendar text-gray-500"></i>
+                            <select class="bg-transparent text-gray-700 focus:outline-none">
+                                <option>Last 7 days</option>
+                                <option>Last 30 days</option>
+                                <option>Last 90 days</option>
+                                <option>Custom Range</option>
+                            </select>
+                        </div>
+                        <button class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600">
+                            <i class="fas fa-download mr-2"></i>
+                            Export Report
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Analytics Content -->
+            <div class="p-6">
+                <!-- Growth Metrics -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+                    <div class="bg-white rounded-xl shadow-sm p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="bg-blue-100 p-3 rounded-lg">
+                                <i class="fas fa-arrow-trend-up text-blue-600 text-xl"></i>
+                            </div>
+                            <span class="text-green-500 flex items-center text-sm">
+                                <i class="fas fa-arrow-up mr-1"></i>
+                                15%
+                            </span>
+                        </div>
+                        <h3 class="text-gray-500 text-sm">Growth Rate</h3>
+                        <div class="flex items-baseline space-x-2">
+                            <p class="text-2xl font-bold text-gray-800">0.85</p>
+                            <p class="text-gray-500 text-sm">kg/day</p>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-xl shadow-sm p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="bg-green-100 p-3 rounded-lg">
+                                <i class="fas fa-weight-scale text-green-600 text-xl"></i>
+                            </div>
+                            <span class="text-green-500 flex items-center text-sm">
+                                <i class="fas fa-arrow-up mr-1"></i>
+                                8%
+                            </span>
+                        </div>
+                        <h3 class="text-gray-500 text-sm">Average Weight</h3>
+                        <div class="flex items-baseline space-x-2">
+                            <p class="text-2xl font-bold text-gray-800">75.4</p>
+                            <p class="text-gray-500 text-sm">kg</p>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-xl shadow-sm p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="bg-purple-100 p-3 rounded-lg">
+                                <i class="fas fa-heart text-purple-600 text-xl"></i>
+                            </div>
+                            <span class="text-green-500 flex items-center text-sm">
+                                <i class="fas fa-arrow-up mr-1"></i>
+                                5%
+                            </span>
+                        </div>
+                        <h3 class="text-gray-500 text-sm">Health Index</h3>
+                        <div class="flex items-baseline space-x-2">
+                            <p class="text-2xl font-bold text-gray-800">94.2</p>
+                            <p class="text-gray-500 text-sm">points</p>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-xl shadow-sm p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="bg-yellow-100 p-3 rounded-lg">
+                                <i class="fas fa-clock text-yellow-600 text-xl"></i>
+                            </div>
+                            <span class="text-yellow-500 flex items-center text-sm">
+                                <i class="fas fa-minus mr-1"></i>
+                                0%
+                            </span>
+                        </div>
+                        <h3 class="text-gray-500 text-sm">Avg. Age</h3>
+                        <div class="flex items-baseline space-x-2">
+                            <p class="text-2xl font-bold text-gray-800">8.2</p>
+                            <p class="text-gray-500 text-sm">months</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Main Charts -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                    <!-- Growth Analysis -->
+                    <div class="bg-white rounded-xl shadow-sm p-6">
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="text-lg font-semibold">Growth Analysis</h3>
+                            <div class="flex items-center space-x-2">
+                                <button class="text-sm text-gray-500 hover:text-gray-700">
+                                    <i class="fas fa-ellipsis-v"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <canvas id="growthChart" height="300"></canvas>
+                    </div>
+
+                    <!-- Weight Distribution -->
+                    <div class="bg-white rounded-xl shadow-sm p-6">
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="text-lg font-semibold">Weight Distribution</h3>
+                            <div class="flex items-center space-x-2">
+                                <button class="text-sm text-gray-500 hover:text-gray-700">
+                                    <i class="fas fa-ellipsis-v"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <canvas id="distributionChart" height="300"></canvas>
+                    </div>
+                </div>
+
+                <!-- Barn Performance Comparison -->
+                <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-lg font-semibold">Barn Performance Comparison</h3>
+                        <button class="text-sm text-blue-600 hover:text-blue-700">View Details</button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full">
+                            <thead>
+                                <tr class="text-left text-sm text-gray-500">
+                                    <th class="pb-3">Barn</th>
+                                    <th class="pb-3">Animals</th>
+                                    <th class="pb-3">Avg. Weight</th>
+                                    <th class="pb-3">Growth Rate</th>
+                                    <th class="pb-3">Health Score</th>
+                                    <th class="pb-3">Performance</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for i in range(4) %}
+                                <tr class="border-t">
+                                    <td class="py-3">
+                                        <div class="flex items-center">
+                                            <span class="font-medium">Barn #{{i + 1}}</span>
+                                        </div>
+                                    </td>
+                                    <td class="py-3">32</td>
+                                    <td class="py-3">75.3 kg</td>
+                                    <td class="py-3">0.85 kg/day</td>
+                                    <td class="py-3">94%</td>
+                                    <td class="py-3">
+                                        <div class="flex items-center">
+                                            <div class="w-16 bg-gray-200 rounded-full h-2 mr-2">
+                                                <div class="bg-green-500 h-2 rounded-full" style="width: 85%"></div>
+                                            </div>
+                                            <span class="text-sm text-gray-600">8.5</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Health & Behavior Analysis -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Health Trends -->
+                    <div class="bg-white rounded-xl shadow-sm p-6">
+                        <h3 class="text-lg font-semibold mb-6">Health Trends</h3>
+                        <div class="space-y-4">
+                            <div>
+                                <div class="flex justify-between mb-2">
+                                    <span class="text-gray-600">Stress Levels</span>
+                                    <span class="text-green-500">Low</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div class="bg-green-500 h-2 rounded-full" style="width: 15%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between mb-2">
+                                    <span class="text-gray-600">Activity Level</span>
+                                    <span class="text-green-500">High</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div class="bg-green-500 h-2 rounded-full" style="width: 85%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between mb-2">
+                                    <span class="text-gray-600">Rest Patterns</span>
+                                    <span class="text-green-500">Normal</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div class="bg-green-500 h-2 rounded-full" style="width: 75%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Behavior Patterns -->
+                    <div class="bg-white rounded-xl shadow-sm p-6">
+                        <h3 class="text-lg font-semibold mb-6">Behavior Patterns</h3>
+                        <canvas id="behaviorChart" height="250"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        // Gráfico de crecimiento (Growth Analysis)
+        const growthCtx = document.getElementById('growthChart').getContext('2d');
+        new Chart(growthCtx, {
+            type: 'line',
+            data: {
+                labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5', 'Week 6'],
+                datasets: [{
+                    label: 'Actual Growth',
+                    data: [65, 68, 70, 72, 73, 75],
+                    borderColor: 'rgb(59, 130, 246)',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    tension: 0.4,
+                    fill: true
+                },
+                {
+                    label: 'Expected Growth',
+                    data: [65, 67, 69, 71, 73, 74],
+                    borderColor: 'rgb(209, 213, 219)',
+                    borderDash: [5, 5],
+                    tension: 0.4,
+                    fill: false
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            usePointStyle: true,
+                            padding: 20
+                        }
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: false,
+                        title: {
+                            display: true,
+                            text: 'Weight (kg)'
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false
+                        }
+                    }
+                }
+            }
+        });
+    
+        // Gráfico de distribución (Weight Distribution)
+        const distributionCtx = document.getElementById('distributionChart').getContext('2d');
+        new Chart(distributionCtx, {
+            type: 'bar',
+            data: {
+                labels: ['60-65kg', '65-70kg', '70-75kg', '75-80kg', '80-85kg'],
+                datasets: [{
+                    label: 'Number of Animals',
+                    data: [10, 25, 45, 20, 5],
+                    backgroundColor: 'rgba(59, 130, 246, 0.5)',
+                    borderColor: 'rgb(59, 130, 246)',
+                    borderWidth: 1,
+                    borderRadius: 5,
+                    maxBarThickness: 50
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return `${context.parsed.y} animals`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Number of Animals'
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false
+                        }
+                    }
+                }
+            }
+        });
+    
+        // Gráfico de comportamiento (Behavior Patterns)
+        const behaviorCtx = document.getElementById('behaviorChart').getContext('2d');
+        new Chart(behaviorCtx, {
+            type: 'radar',
+            data: {
+                labels: ['Activity', 'Rest', 'Feeding', 'Social', 'Stress', 'Health'],
+                datasets: [{
+                    label: 'Current Week',
+                    data: [85, 75, 80, 70, 15, 90],
+                    backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                    borderColor: 'rgb(59, 130, 246)',
+                    pointBackgroundColor: 'rgb(59, 130, 246)',
+                    pointBorderColor: '#fff',
+                    pointHoverBackgroundColor: '#fff',
+                    pointHoverBorderColor: 'rgb(59, 130, 246)'
+                },
+                {
+                    label: 'Previous Week',
+                    data: [80, 70, 75, 65, 20, 85],
+                    backgroundColor: 'rgba(209, 213, 219, 0.2)',
+                    borderColor: 'rgb(209, 213, 219)',
+                    pointBackgroundColor: 'rgb(209, 213, 219)',
+                    pointBorderColor: '#fff',
+                    pointHoverBackgroundColor: '#fff',
+                    pointHoverBorderColor: 'rgb(209, 213, 219)'
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            usePointStyle: true,
+                            padding: 20
+                        }
+                    }
+                },
+                scales: {
+                    r: {
+                        angleLines: {
+                            display: true,
+                            color: 'rgba(0, 0, 0, 0.1)'
+                        },
+                        suggestedMin: 0,
+                        suggestedMax: 100,
+                        ticks: {
+                            stepSize: 20
+                        }
+                    }
+                },
+                elements: {
+                    line: {
+                        tension: 0.2
+                    }
+                }
+            }
+        });
+    
+        // Funcionalidad para el selector de rango de fechas
+        document.querySelector('select').addEventListener('change', function(e) {
+            // Aquí puedes agregar la lógica para actualizar los datos según el rango seleccionado
+            console.log('Selected range:', e.target.value);
+            // updateChartData(e.target.value);
+        });
+    
+        // Funcionalidad para el botón de exportar
+        document.querySelector('button[class*="bg-blue-500"]').addEventListener('click', function() {
+            // Aquí puedes agregar la lógica para exportar los datos
+            console.log('Exporting report...');
+            // exportReport();
+        });
+    
+        // Función para actualizar los datos de los gráficos (simulada)
+        function updateChartData(range) {
+            // Aquí irá la lógica para actualizar los datos según el rango seleccionado
+            // Por ejemplo:
+            const newData = generateDataForRange(range);
+            charts.forEach(chart => {
+                chart.data.datasets[0].data = newData;
+                chart.update();
+            });
+        }
+    
+        // Función para exportar el reporte (simulada)
+        function exportReport() {
+            // Aquí irá la lógica para exportar los datos
+            // Por ejemplo:
+            const reportData = {
+                date: new Date(),
+                metrics: {
+                    growthRate: '0.85 kg/day',
+                    averageWeight: '75.4 kg',
+                    healthIndex: '94.2',
+                    averageAge: '8.2 months'
+                },
+                charts: {
+                    growth: growthChart.data,
+                    distribution: distributionChart.data,
+                    behavior: behaviorChart.data
+                }
+            };
+            console.log('Report data:', reportData);
+            // Aquí iría la lógica real de exportación
+        }
+    </script>
+</body>

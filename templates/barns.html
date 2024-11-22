@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartFarm Vision - Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <!-- Add this right after the body tag starts -->
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+    {% for category, message in messages %}
+        <div class="fixed top-4 right-4 z-50 {{ 'bg-green-100 border-green-400 text-green-700' if category == 'success' else 'bg-red-100 border-red-400 text-red-700' }} px-4 py-3 rounded border" role="alert">
+            <span class="block sm:inline">{{ message }}</span>
+            <span class="absolute top-0 bottom-0 right-0 px-4 py-3">
+                <svg onclick="this.parentElement.parentElement.remove()" class="fill-current h-6 w-6 cursor-pointer" role="button" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                    <title>Close</title>
+                    <path d="M14.348 14.849a1.2 1.2 0 0 1-1.697 0L10 11.819l-2.651 3.029a1.2 1.2 0 1 1-1.697-1.697l2.758-3.15-2.759-3.152a1.2 1.2 0 1 1 1.697-1.697L10 8.183l2.651-3.031a1.2 1.2 0 1 1 1.697 1.697l-2.758 3.152 2.758 3.15a1.2 1.2 0 0 1 0 1.698z"/>
+                </svg>
+            </span>
+        </div>
+    {% endfor %}
+{% endif %}
+{% endwith %}
+    <div class="flex h-screen">
+        <!-- Sidebar -->
+        <div class="w-64 bg-green-700 text-white">
+            <div class="p-6">
+                <div class="flex items-center space-x-3 mb-8">
+                    <img src="{{ url_for('static', filename='images/logo2.png') }}" alt="Logo" class="h-10 w-10">
+                    <h1 class="text-2xl font-bold">SmartFarm</h1>
+                </div>
+
+                <!-- Navigation Links -->
+                <nav class="space-y-2">
+                    <a href="/dashboard" class="flex items-center space-x-3 bg-green-800 text-white p-3 rounded-lg">
+                        <i class="fas fa-home w-6"></i>
+                        <span>Dashboard</span>
+                    </a>
+                    <a href="{{ url_for('barns_page') }}" class="flex items-center space-x-3 hover:bg-green-800 p-3 rounded-lg">
+                        <i class="fas fa-warehouse w-6"></i>
+                        <span>Barns</span>
+                    </a>
+                    <a href="/analytics" class="flex items-center space-x-3 hover:bg-green-800 p-3 rounded-lg">
+                        <i class="fas fa-chart-line w-6"></i>
+                        <span>Analytics</span>
+                    </a>
+                    <a href="/alerts" class="flex items-center space-x-3 hover:bg-green-800 p-3 rounded-lg">
+                        <i class="fas fa-bell w-6"></i>
+                        <span>Alerts</span>
+                    </a>
+                    <a href="/settings" class="flex items-center space-x-3 hover:bg-green-800 p-3 rounded-lg">
+                        <i class="fas fa-cog w-6"></i>
+                        <span>Settings</span>
+                    </a>
+                </nav>
+            </div>
+
+            <!-- User Profile -->
+            <div class="p-6 mt-auto">
+                <div class="flex items-center space-x-3">
+                    <img src="https://api.dicebear.com/7.x/avataaars/svg?seed={{ session.get('email', 'default') }}" 
+                         alt="Avatar" class="h-10 w-10 rounded-full">
+                    <div>
+                        <div class="font-medium">{{ session.get('first_name', '') }} {{ session.get('last_name', '') }}</div>
+                        <div class="text-sm opacity-75">Farm Manager</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="flex-1 overflow-y-auto" id="barns-page">
+            <!-- Header -->
+            <div class="bg-white shadow-sm">
+                <div class="flex justify-between items-center p-6">
+                    <div>
+                        <h1 class="text-2xl font-bold text-gray-800">Barns Management</h1>
+                        <p class="text-gray-600">Manage and monitor all your barns</p>
+                    </div>
+                    <button onclick="openAddBarnModal()" class="flex items-center space-x-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
+                        </svg>
+                        <span>Add Barn</span>
+                    </button>
+                </div>
+
+                <!-- Stats Overview -->
+                <div id="stats" class="grid grid-cols-1 md:grid-cols-4 gap-6 p-6">
+                    <div class="bg-white rounded-xl shadow-sm p-4">
+                        <div class="text-gray-500 text-sm flex items-center space-x-3 ">
+                            <i class="fas fa-warehouse w-6"></i>
+                            <span> Total Barns </span>
+                        </div>
+                        <div id="total-barns" class="text-2xl font-bold">Loading...</div>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-sm p-4">
+                        <div class="text-gray-500 text-sm">Total Capacity</div>
+                        <div id="total-capacity" class="text-2xl font-bold">Loading...</div>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-sm p-4">
+                        <div class="text-gray-500 text-sm">Average Occupancy</div>
+                        <div id="average-occupancy" class="text-2xl font-bold">Loading...</div>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-sm p-4">
+                        <div class="text-gray-500 text-sm">Active Alerts</div>
+                        <div id="active-alerts" class="text-2xl font-bold text-red-500">Loading...</div>
+                    </div>
+                </div>
+                
+            </div>
+            <div id="barns-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
+                <p>Loading barns...</p>
+            </div>
+
+            <!-- Barns Grid -->
+            <div class="p-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {% for barn in barns %}
+                    <div class="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow">
+                        <div class="p-6">
+                            <div class="flex justify-between items-start mb-4">
+                                <div>
+                                    <h3 class="text-xl font-semibold text-gray-800">{{ barn.name }}</h3>
+                                    <p class="text-gray-500 text-sm">ID: {{ barn.id }}</p>
+                                </div>
+                                <span class="text-sm px-2 py-1 rounded-full 
+                                    {% if barn.health_score >= 90 %}bg-green-100 text-green-800
+                                    {% elif barn.health_score >= 70 %}bg-yellow-100 text-yellow-800
+                                    {% else %}bg-red-100 text-red-800{% endif %}">
+                                    {{ barn.health_score }}% Health
+                                </span>
+                            </div>
+                
+                            <div class="grid grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <div class="text-gray-500 text-sm">Animals</div>
+                                    <div class="font-semibold">{{ barn.current_count }} / {{ barn.capacity }}</div>
+                                    <div class="text-sm {% if barn.count_change > 0 %}text-green-500{% else %}text-red-500{% endif %}">
+                                        {% if barn.count_change > 0 %}+{% endif %}{{ barn.count_change }} this week
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="text-gray-500 text-sm">Avg. Weight</div>
+                                    <div class="font-semibold">{{ barn.avg_weight|round(1) }} kg</div>
+                                </div>
+                            </div>
+                
+                            <div class="flex space-x-3">
+                                <a href="{{ url_for('barn_details', barn_id=barn.id) }}" 
+                                   class="flex-1 text-center bg-blue-50 text-blue-600 px-4 py-2 rounded hover:bg-blue-100">
+                                   View Details
+                                </a>
+                                <button onclick="openEditBarnModal('{{ barn.id }}')" 
+                                        class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">
+                                    Edit
+                                </button>
+                                <button onclick="deleteBarn('{{ barn.id }}')" 
+                                        class="px-4 py-2 text-red-600 hover:bg-red-100 rounded">
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>                
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Barn Modal -->
+    <div id="addBarnModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center">
+        <div class="bg-white rounded-xl shadow-lg w-full max-w-md p-6">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-semibold">Add New Barn</h3>
+                <button onclick="closeAddBarnModal()" class="text-gray-500 hover:text-gray-700">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <!-- Update the form action to use the API endpoint -->
+<form id="addBarnForm" method="POST" action="{{ url_for('create_barn') }}">
+    <div class="space-y-4">
+         <div>
+             <label class="block text-sm font-medium text-gray-700">Barn Name</label>
+             <input type="text" name="name" required 
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+         </div>
+         <div>
+             <label class="block text-sm font-medium text-gray-700">Capacity</label>
+             <input type="number" name="capacity" required 
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+         </div>
+         <div>
+             <label class="block text-sm font-medium text-gray-700">Description</label>
+             <textarea name="description" rows="3" 
+                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"></textarea>
+         </div>
+     </div>
+     <div class="flex justify-end space-x-3 mt-6">
+         <button type="button" onclick="closeAddBarnModal()" 
+                 class="px-4 py-2 text-gray-600 hover:text-gray-800">Cancel</button>
+         <button type="submit" 
+                 class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">Add Barn</button>
+     </div>
+ </form>
+        </div>
+    </div>
+
+    <div id="barnModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center">
+        <div class="bg-white rounded-xl shadow-lg w-full max-w-md p-6">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-semibold" id="barnModalTitle">Add New Barn</h3>
+                <button onclick="closeBarnModal()" class="text-gray-500 hover:text-gray-700">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <form id="barnForm" method="POST" action="{{ url_for('create_barn') }}">
+                <input type="hidden" name="barn_id" id="barnIdInput">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Barn Name</label>
+                        <input type="text" name="name" id="barnNameInput" required 
+                               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Capacity</label>
+                        <input type="number" name="capacity" id="barnCapacityInput" required 
+                               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Description</label>
+                        <textarea name="description" id="barnDescriptionInput" rows="3" 
+                                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"></textarea>
+                    </div>
+                </div>
+                <div class="flex justify-end space-x-3 mt-6">
+                    <button type="button" onclick="closeBarnModal()" 
+                            class="px-4 py-2 text-gray-600 hover:text-gray-800">Cancel</button>
+                    <button type="submit" 
+                            class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <div id="barnModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center">
+        <div class="bg-white rounded-xl shadow-lg w-full max-w-md p-6">
+            <div class="flex justify-between items-center mb-6">
+                <h3 id="barnModalTitle" class="text-xl font-semibold">Edit Barn</h3>
+                <button onclick="closeBarnModal()" class="text-gray-500 hover:text-gray-700">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <form id="barnForm" method="PUT">
+                <input type="hidden" name="barn_id" id="barnIdInput">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Barn Name</label>
+                        <input type="text" name="name" id="barnNameInput" required 
+                               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Capacity</label>
+                        <input type="number" name="capacity" id="barnCapacityInput" required 
+                               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Description</label>
+                        <textarea name="description" id="barnDescriptionInput" rows="3" 
+                                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"></textarea>
+                    </div>
+                </div>
+                <div class="flex justify-end space-x-3 mt-6">
+                    <button type="button" onclick="closeBarnModal()" 
+                            class="px-4 py-2 text-gray-600 hover:text-gray-800">Cancel</button>
+                    <button type="submit" 
+                            class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+
+
+    <script>
+        // Fetch barns data and update UI
+        function fetchBarns() {
+            console.log('Fetching barns...');
+            fetch('/api/barns', { method: 'GET', headers: { 'Content-Type': 'application/json' } })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (!data.success) {
+                        console.error('Failed to fetch barns:', data.message);
+                        alert('Failed to load barns data');
+                        return;
+                    }
+    
+                    // Update barns display
+                    updateBarnsUI(data.barns);
+    
+                    // Update stats
+                    document.getElementById('total-barns').textContent = data.total_barns || 0;
+                    document.getElementById('total-capacity').textContent = data.total_capacity || 0;
+                    document.getElementById('average-occupancy').textContent =
+                        data.average_occupancy > 0 ? `${data.average_occupancy.toFixed(1)}%` : 'N/A';
+                    document.getElementById('active-alerts').textContent = data.active_alerts || 0;
+                })
+                .catch(error => {
+                    console.error('Error fetching barns:', error);
+                    alert('Error loading barns data');
+                });
+        }
+    
+        // Update the UI with barns data
+        function updateBarnsUI(barns) {
+    const barnsContainer = document.getElementById('barns-container');
+    if (!barnsContainer) return;
+
+    barnsContainer.innerHTML = barns.map(barn => `
+        <div class="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow">
+            <div class="p-6">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <h3 class="text-xl font-semibold text-gray-800">${barn.name || 'Unnamed Barn'}</h3>
+                        <p class="text-gray-500 text-sm">ID: ${barn.id}</p>
+                    </div>
+                    <span class="text-sm px-2 py-1 rounded-full 
+                        ${barn.health_score >= 90 ? 'bg-green-100 text-green-800' : 
+                        barn.health_score >= 70 ? 'bg-yellow-100 text-yellow-800' : 
+                        'bg-red-100 text-red-800'}">
+                        ${barn.health_score || 0}% Health
+                    </span>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="text-gray-500 text-sm">Animals:</div>
+                    <div>${barn.current_count} / ${barn.capacity}</div>
+
+                    <div class="text-gray-500 text-sm">Avg. Age:</div>
+                    <div>${barn.avg_age || 0} months</div>
+
+                    <div class="text-gray-500 text-sm">Avg. Weight:</div>
+                    <div>${barn.avg_weight || 0} kg</div>
+
+                    <div class="text-gray-500 text-sm">Avg. Length:</div>
+                    <div>${barn.avg_length || 0} cm</div>
+
+                    <div class="text-gray-500 text-sm">Alerts:</div>
+                    <div>${barn.alerts || 0}</div>
+                </div>
+
+                <!-- Edit and Delete Buttons -->
+                <div class="flex justify-between mt-4">
+                    <button 
+                        onclick="openEditBarnModal('${barn.id}')"
+                        class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                        Edit
+                    </button>
+                    <button 
+                        onclick="deleteBarn('${barn.id}')"
+                        class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">
+                        Delete
+                    </button>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+
+        // Open and close modal
+        function openAddBarnModal() {
+            document.getElementById('barnModal').classList.remove('hidden');
+        }
+    
+        function closeAddBarnModal() {
+            document.getElementById('barnModal').classList.add('hidden');
+            document.getElementById('addBarnForm').reset();
+        }
+    
+        function openEditBarnModal(barnId) {
+    fetch(`/api/barns/${barnId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data) {
+                // Populate modal fields with barn data
+                document.getElementById('barnModalTitle').textContent = 'Edit Barn';
+                document.getElementById('barnIdInput').value = barnId;
+                document.getElementById('barnNameInput').value = data.name || '';
+                document.getElementById('barnCapacityInput').value = data.capacity || 0;
+                document.getElementById('barnDescriptionInput').value = data.description || '';
+                document.getElementById('barnForm').action = `/api/barns/${barnId}`;
+                document.getElementById('barnModal').classList.remove('hidden');
+            }
+        })
+        .catch(error => console.error('Error fetching barn data:', error));
+}
+
+    
+        function closeBarnModal() {
+            document.getElementById('barnModal').classList.add('hidden');
+        }
+    
+        // Delete barn
+        function deleteBarn(barnId) {
+    if (confirm('Are you sure you want to delete this barn?')) {
+        fetch(`/api/barns/${barnId}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+        })
+            .then((response) => response.json())
+            .then((data) => {
+                if (data.success) {
+                    alert('Barn deleted successfully!');
+                    fetchBarns(); // Refresh the barns list
+                } else {
+                    alert('Failed to delete barn: ' + data.error);
+                }
+            })
+            .catch((error) => {
+                console.error('Error deleting barn:', error);
+                alert('Error deleting barn.');
+            });
+    }
+}
+
+document.getElementById('barnForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+
+    const barnId = document.getElementById('barnIdInput').value;
+    const url = `/api/barns/${barnId}`;
+    const data = {
+        name: document.getElementById('barnNameInput').value,
+        capacity: parseInt(document.getElementById('barnCapacityInput').value, 10),
+        description: document.getElementById('barnDescriptionInput').value,
+    };
+
+    fetch(url, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    })
+        .then((response) => response.json())
+        .then((data) => {
+            if (data.success) {
+                alert('Barn updated successfully!');
+                closeBarnModal();
+                fetchBarns(); // Refresh the barns list
+            } else {
+                alert('Failed to update barn.');
+            }
+        })
+        .catch((error) => {
+            console.error('Error editing barn:', error);
+            alert('Error editing barn.');
+        });
+});
+
+    
+        // Auto-hide flash messages after 5 seconds
+        setTimeout(function () {
+            const flashMessages = document.querySelectorAll('[role="alert"]');
+            flashMessages.forEach(function (message) {
+                message.remove();
+            });
+        }, 5000);
+    
+        // Load barns data when the page is loaded
+        document.addEventListener('DOMContentLoaded', fetchBarns);
+        
+    </script>
+</body>
+</html>
