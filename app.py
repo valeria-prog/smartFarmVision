@@ -1518,7 +1518,7 @@ def save_measurement():
     except Exception as e:
         logger.error(f"Error in save_measurement endpoint: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
-#height
+#height 252cm 
 class HeightMeasurement:
     def __init__(self):
         self.mp_pose = mp.solutions.pose
@@ -1605,6 +1605,29 @@ class HeightMeasurement:
                 'error': str(e),
                 'height': None
             }
+
+# Instancia de la clase HeightMeasurement
+height_measurement = HeightMeasurement()
+
+@app.route('/api/height-measurement', methods=['POST'])
+@login_required
+def process_height():
+    """Procesa la altura usando MediaPipe"""
+    try:
+        data = request.json
+        image_data = data.get('image')
+        if not image_data:
+            return jsonify({'success': False, 'error': 'No image data provided'}), 400
+
+        # Calcula la altura usando la clase HeightMeasurement
+        result = height_measurement.calculate_height(image_data)
+        return jsonify(result)
+    
+    except Exception as e:
+        logger.error(f"Error in process_height endpoint: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 
 @app.route('/live-monitoring')
 def live_monitoring():

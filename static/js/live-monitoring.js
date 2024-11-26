@@ -290,6 +290,40 @@ function startCooldown() {
     }, CONFIG.COOLDOWN_TIME * 1000);
 }
 
+async function measureHeight() {
+    const video = document.getElementById('videoFeed');
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const context = canvas.getContext('2d');
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    // Convierte la imagen del canvas a base64
+    const imageData = canvas.toDataURL('image/jpeg');
+
+    // Envía la imagen al servidor para procesar la altura
+    try {
+        const response = await fetch('/api/height-measurement', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image: imageData })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            document.getElementById('heightValue').textContent = `${result.height} cm`;
+        } else {
+            console.error(result.error);
+        }
+    } catch (error) {
+        console.error('Error measuring height:', error);
+    }
+}
+
+// Llama a la función de medición periódicamente
+setInterval(measureHeight, 5000);  // Cada 5 segundos
+
+
 // Event Listeners
 elements.startButton.addEventListener('click', startCamera);
 elements.stopButton.addEventListener('click', stopCamera);
