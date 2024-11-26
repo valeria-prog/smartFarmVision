@@ -55,442 +55,104 @@
             </div>
         </div>
 
-        <!-- Main Content Area -->
-        <div class="flex-1 flex flex-col overflow-hidden">
-            <!-- Top Header -->
-            <header class="bg-white shadow">
-                <div class="flex justify-between items-center px-6 py-4">
-                    <h1 class="text-2xl font-bold text-gray-800">Live Monitoring System</h1>
-                    <div id="statusIndicator" class="flex items-center space-x-2">
-                        <span class="h-3 w-3 rounded-full bg-green-500"></span>
-                        <span class="text-sm text-gray-600">System Active</span>
-                    </div>
-                </div>
-            </header>
-
-            <!-- Main Content -->
-            <main class="flex-1 overflow-y-auto p-6">
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <!-- Left Column - Camera and Controls -->
-                    <div class="space-y-6">
-                        <!-- Camera Feed -->
-                        <div class="bg-white rounded-lg shadow overflow-hidden">
-                            <div class="p-4 border-b border-gray-200">
-                                <h2 class="text-lg font-semibold text-gray-900">Live Camera Feed</h2>
-                            </div>
-                            <div class="p-4">
-                                <div class="relative aspect-video bg-black rounded-lg overflow-hidden">
-                                    <video id="cameraFeed" class="absolute inset-0 w-full h-full object-cover" autoplay playsinline></video>
-                                    <canvas id="overlay" class="absolute inset-0 w-full h-full"></canvas>
-                                    <div id="processingIndicator" class="absolute top-4 right-4 hidden">
+        <div class="flex-1 overflow-y-auto p-6">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Left Column - Camera and Controls -->
+                <div class="space-y-6">
+                    <!-- Camera Feed -->
+                    <div class="bg-white rounded-lg shadow overflow-hidden">
+                        <div class="p-4 border-b border-gray-200">
+                            <h2 class="text-lg font-semibold text-gray-900">Live Camera Feed</h2>
+                        </div>
+                        <div class="p-4">
+                            <div class="relative aspect-video bg-black rounded-lg overflow-hidden">
+                                <video id="videoFeed" class="absolute inset-0 w-full h-full object-cover" autoplay playsinline></video>
+                                <canvas id="overlay" class="absolute inset-0 w-full h-full"></canvas>
+                                
+                                <!-- Status Overlays -->
+                                <div class="absolute top-4 right-4 flex flex-col space-y-2">
+                                    <div id="processingIndicator" class="hidden">
                                         <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
                                             Processing...
                                         </span>
                                     </div>
-                                </div>
-                                <div class="mt-4 flex justify-between">
-                                    <button id="startCamera" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2">
-                                        <span>Start Camera</span>
-                                    </button>
-                                    <button id="captureData" disabled class="bg-gray-300 hover:bg-green-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2">
-                                        <span>Capture Data</span>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Current Subject Info -->
-                        <div class="bg-white rounded-lg shadow">
-                            <div class="p-4 border-b border-gray-200">
-                                <h2 class="text-lg font-semibold text-gray-900">Current Subject</h2>
-                            </div>
-                            <div class="p-4">
-                                <div class="grid grid-cols-2 gap-4">
-                                    <div class="text-center p-4 bg-gray-50 rounded-lg">
-                                        <span class="text-sm text-gray-500">Subject ID</span>
-                                        <p id="subjectId" class="text-xl font-semibold text-gray-900">-</p>
+                                    <div id="countdownIndicator" class="hidden">
+                                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                                            Capturing in <span id="countdownValue">5</span>s
+                                        </span>
                                     </div>
-                                    <div class="text-center p-4 bg-gray-50 rounded-lg">
-                                        <span class="text-sm text-gray-500">Last Update</span>
-                                        <p id="lastUpdate" class="text-xl font-semibold text-gray-900">-</p>
+                                    <div id="cooldownIndicator" class="hidden">
+                                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                                            Cooldown Active
+                                        </span>
+                                    </div>
+                                    <div id="faceStatus" class="hidden">
+                                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">
+                                            Waiting for single face...
+                                        </span>
                                     </div>
                                 </div>
+                            </div>
+                            <div class="mt-4 flex justify-between">
+                                <button id="startButton" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg">
+                                    Start Monitoring
+                                </button>
+                                <button id="stopButton" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg hidden">
+                                    Stop Monitoring
+                                </button>
                             </div>
                         </div>
                     </div>
-
-                    <!-- Right Column - Measurements and Charts -->
-                    <div class="space-y-6">
-                        <!-- Live Measurements -->
-                        <div class="bg-white rounded-lg shadow">
-                            <div class="p-4 border-b border-gray-200">
-                                <h2 class="text-lg font-semibold text-gray-900">Live Measurements</h2>
-                            </div>
-                            <div class="p-4">
-                                <div class="grid grid-cols-2 gap-4">
-                                    <div class="p-4 bg-blue-50 rounded-lg">
-                                        <span class="text-sm text-blue-600">Weight</span>
-                                        <p id="weightValue" class="text-2xl font-bold text-blue-900">0 kg</p>
-                                    </div>
-                                    <div class="p-4 bg-green-50 rounded-lg">
-                                        <span class="text-sm text-green-600">Width</span>
-                                        <p id="heightValue" class="text-2xl font-bold text-green-900">0 cm</p>
-                                    </div>
-                                    <div class="p-4 bg-purple-50 rounded-lg">
-                                        <span class="text-sm text-purple-600">Height</span>
-                                        <p id="heightValue" class="text-2xl font-bold text-purple-900">0 cm</p>
-                                    </div>
-                                    <div class="p-4 bg-yellow-50 rounded-lg">
-                                        <span class="text-sm text-yellow-600">Emotion</span>
-                                        <p id="emotionValue" class="text-2xl font-bold text-yellow-900">-</p>
-                                    </div>
-                                    <div class="p-4 bg-red-50  rounded-lg">
-                                        <span class="text-sm text-red-600">Age</span>
-                                        <p id="ageValue" class="text-2xl font-bold text-yellow-900">-</p>
-                                    </div>
+        
+                    <!-- Current Subject Info -->
+                    <div class="bg-white rounded-lg shadow">
+                        <div class="p-4 border-b border-gray-200">
+                            <h2 class="text-lg font-semibold text-gray-900">Current Subject</h2>
+                        </div>
+                        <div class="p-4">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="text-center p-4 bg-gray-50 rounded-lg">
+                                    <span class="text-sm text-gray-500">Subject ID</span>
+                                    <p id="subjectId" class="text-xl font-semibold text-gray-900">-</p>
                                 </div>
-                            </div>
-                        </div>
-
-                        <!-- Historical Data Chart -->
-                        <div class="bg-white rounded-lg shadow">
-                            <div class="p-4 border-b border-gray-200">
-                                <h2 class="text-lg font-semibold text-gray-900">Measurement History</h2>
-                            </div>
-                            <div class="p-4">
-                                <canvas id="measurementChart" height="200"></canvas>
-                            </div>
-                        </div>
-
-                        <!-- Alerts Section -->
-                        <div class="bg-white rounded-lg shadow">
-                            <div class="p-4 border-b border-gray-200">
-                                <h2 class="text-lg font-semibold text-gray-900">Alerts</h2>
-                            </div>
-                            <div id="alertsContainer" class="p-4 space-y-2">
-                                <!-- Alerts will be dynamically inserted here -->
+                                <div class="text-center p-4 bg-gray-50 rounded-lg">
+                                    <span class="text-sm text-gray-500">Last Update</span>
+                                    <p id="lastUpdate" class="text-xl font-semibold text-gray-900">-</p>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
-            </main>
+        
+                <!-- Right Column - Measurements -->
+                <div class="space-y-6">
+                    <div class="bg-white rounded-lg shadow">
+                        <div class="p-4 border-b border-gray-200">
+                            <h2 class="text-lg font-semibold text-gray-900">Live Measurements</h2>
+                        </div>
+                        <div class="p-4">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="p-4 bg-red-50 rounded-lg">
+                                    <span class="text-sm text-red-600">Age</span>
+                                    <p id="ageValue" class="text-2xl font-bold text-red-900">-</p>
+                                </div>
+                                <div class="p-4 bg-yellow-50 rounded-lg">
+                                    <span class="text-sm text-yellow-600">Emotion</span>
+                                    <p id="emotionValue" class="text-2xl font-bold text-yellow-900">-</p>
+                                </div>
+                                <div class="p-4 bg-purple-50 rounded-lg">
+                                    <span class="text-sm text-purple-600">Height</span>
+                                    <p id="heightValue" class="text-2xl font-bold text-purple-900">-</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-    </div>
 
-    <script>
-       
+   <!-- Agregar el script al final del body -->
+<script src="{{ url_for('static', filename='js/live-monitoring.js') }}"></script>
 
-        let isProcessing = false;
-        let stream = null;
-        let processingInterval = null;
-
-        const video = document.getElementById('cameraFeed');
-        const overlay = document.getElementById('overlay');
-        const ctx = overlay.getContext('2d');
-        const startButton = document.getElementById('startCamera');
-        const captureButton = document.getElementById('captureData');
-        const processingIndicator = document.getElementById('processingIndicator');
-
-        // Actualizar valores en la UI
-        function updateMeasurements(data) {
-            document.getElementById('emotionValue').textContent = data.emotion;
-            // Agregar un indicador de confianza para la emoción
-            const confidenceDisplay = document.createElement('span');
-            confidenceDisplay.className = 'text-xs text-yellow-600 ml-2';
-            confidenceDisplay.textContent = `${(data.emotion_confidence * 100).toFixed(0)}%`;
-            document.getElementById('emotionValue').appendChild(confidenceDisplay);
-
-            // Actualizar edad
-            const ageElement = document.getElementById('ageValue');
-            if (ageElement) {
-                ageElement.textContent = `${Math.round(data.age)} años`;
-            }
-
-            // Actualizar última actualización
-            document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
-        }
-
-        // Dibujar rectángulo facial
-        function drawFaceBox(location) {
-            ctx.clearRect(0, 0, overlay.width, overlay.height);
-            ctx.strokeStyle = '#00ff00';
-            ctx.lineWidth = 2;
-            ctx.strokeRect(location.x, location.y, location.width, location.height);
-            
-            // Agregar etiqueta de edad y emoción
-            ctx.fillStyle = '#00ff00';
-            ctx.font = '16px Arial';
-            const label = `Age: ${location.age} | ${location.emotion}`;
-            ctx.fillText(label, location.x, location.y - 5);
-        }
-
-        // Procesar frame de video
-        async function processFrame() {
-            if (isProcessing) return;
-            
-            try {
-                isProcessing = true;
-                processingIndicator.classList.remove('hidden');
-
-                // Asegurar que el canvas tenga las dimensiones correctas
-                overlay.width = video.videoWidth;
-                overlay.height = video.videoHeight;
-                
-                // Capturar frame actual
-                ctx.drawImage(video, 0, 0, overlay.width, overlay.height);
-                const imageData = overlay.toDataURL('image/jpeg', 0.8);
-
-                // Enviar al servidor para procesamiento
-                const response = await fetch('/api/process-frame', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        image: imageData,
-                        timestamp: new Date().toISOString()
-                    })
-                });
-
-                const data = await response.json();
-                
-                if (data.success) {
-                    updateMeasurements(data);
-                    if (data.face_location) {
-                        drawFaceBox({
-                            ...data.face_location,
-                            age: data.age,
-                            emotion: data.emotion
-                        });
-                    }
-                    captureButton.disabled = false;
-                    captureButton.classList.remove('bg-gray-300');
-                    captureButton.classList.add('bg-green-500');
-                }
-
-            } catch (error) {
-                console.error('Error processing frame:', error);
-            } finally {
-                isProcessing = false;
-                processingIndicator.classList.add('hidden');
-            }
-        }
-
-        // Iniciar cámara
-        startButton.addEventListener('click', async () => {
-            try {
-                stream = await navigator.mediaDevices.getUserMedia({
-                    video: {
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 }
-                    }
-                });
-                
-                video.srcObject = stream;
-                startButton.disabled = true;
-                startButton.classList.add('bg-gray-300');
-                startButton.classList.remove('bg-blue-500');
-
-                // Comenzar procesamiento cuando el video esté listo
-                video.onloadedmetadata = () => {
-                    // Procesar cada 2 segundos
-                    processingInterval = setInterval(processFrame, 2000);
-                };
-
-            } catch (error) {
-                console.error('Error accessing camera:', error);
-                alert('Error accessing camera. Please check permissions.');
-            }
-        });
-
-        // Capturar datos
-        captureButton.addEventListener('click', async () => {
-            if (isProcessing) return;
-
-            try {
-                isProcessing = true;
-                processingIndicator.classList.remove('hidden');
-
-                // Capturar frame final
-                overlay.width = video.videoWidth;
-                overlay.height = video.videoHeight;
-                ctx.drawImage(video, 0, 0, overlay.width, overlay.height);
-                const finalImage = overlay.toDataURL('image/jpeg', 0.9);
-
-                // Procesar y guardar datos finales
-                const response = await fetch('/api/save-measurement', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        image: finalImage,
-                        barn_id: '1', // Por ahora hardcoded como mencionaste
-                        timestamp: new Date().toISOString()
-                    })
-                });
-
-                const result = await response.json();
-                if (result.success) {
-                    // Mostrar confirmación
-                    alert('Measurement saved successfully!');
-                }
-
-            } catch (error) {
-                console.error('Error saving measurement:', error);
-                alert('Error saving measurement');
-            } finally {
-                isProcessing = false;
-                processingIndicator.classList.add('hidden');
-            }
-        });
-
-        // Limpieza al cerrar
-        window.addEventListener('beforeunload', () => {
-            if (stream) {
-                stream.getTracks().forEach(track => track.stop());
-            }
-            if (processingInterval) {
-                clearInterval(processingInterval);
-            }
-        });
-
-        ////////////////////////////id
-        // Agregar estas funciones al script existente
-
-let currentPersonId = null;
-let isNewPerson = false;
-
-// Actualizar la función processFrame
-async function processFrame() {
-    if (isProcessing) return;
-    
-    try {
-        isProcessing = true;
-        processingIndicator.classList.remove('hidden');
-
-        overlay.width = video.videoWidth;
-        overlay.height = video.videoHeight;
-        ctx.drawImage(video, 0, 0, overlay.width, overlay.height);
-        const imageData = overlay.toDataURL('image/jpeg', 0.8);
-
-        const response = await fetch('/api/process-frame', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                image: imageData,
-                timestamp: new Date().toISOString()
-            })
-        });
-
-        const data = await response.json();
-        
-        if (data.success) {
-            // Actualizar ID de persona y estado
-            currentPersonId = data.person_id;
-            isNewPerson = data.is_new_person;
-
-            // Actualizar UI con ID de persona
-            updatePersonDisplay(data.person_id, data.is_new_person);
-            
-            // Actualizar otras mediciones
-            updateMeasurements(data);
-            
-            if (data.face_location) {
-                drawFaceBox({
-                    ...data.face_location,
-                    age: data.age,
-                    emotion: data.emotion,
-                    person_id: data.person_id
-                });
-            }
-            
-            captureButton.disabled = false;
-            captureButton.classList.remove('bg-gray-300');
-            captureButton.classList.add('bg-green-500');
-        }
-
-    } catch (error) {
-        console.error('Error processing frame:', error);
-    } finally {
-        isProcessing = false;
-        processingIndicator.classList.add('hidden');
-    }
-}
-
-// Función para actualizar la visualización de la persona
-function updatePersonDisplay(personId, isNew) {
-    const subjectIdElement = document.getElementById('subjectId');
-    subjectIdElement.textContent = personId;
-    
-    // Agregar indicador visual si es persona nueva
-    if (isNew) {
-        const newPersonBadge = document.createElement('span');
-        newPersonBadge.className = 'ml-2 px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full';
-        newPersonBadge.textContent = 'New';
-        subjectIdElement.appendChild(newPersonBadge);
-    }
-}
-
-// Actualizar la función captureData
-async function captureData() {
-    if (!currentPersonId) {
-        alert('No person detected');
-        return;
-    }
-
-    try {
-        const response = await fetch('/api/save-measurement', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                person_id: currentPersonId,
-                age: document.getElementById('ageValue').textContent,
-                emotion: document.getElementById('emotionValue').textContent,
-                emotion_confidence: parseFloat(document.getElementById('emotionValue').dataset.confidence || 0),
-                // Aquí agregaremos weight, length, width cuando los tengamos
-                timestamp: new Date().toISOString()
-            })
-        });
-
-        const result = await response.json();
-        
-        if (result.success) {
-            // Mostrar mensaje de éxito
-            showNotification('Measurement saved successfully!', 'success');
-            
-            // Actualizar histórico si existe
-            if (typeof updateMeasurementHistory === 'function') {
-                updateMeasurementHistory();
-            }
-        } else {
-            throw new Error(result.error);
-        }
-
-    } catch (error) {
-        console.error('Error saving measurement:', error);
-        showNotification('Error saving measurement', 'error');
-    }
-}
-
-// Función para mostrar notificaciones
-function showNotification(message, type = 'success') {
-    const notification = document.createElement('div');
-    notification.className = `fixed bottom-4 right-4 p-4 rounded-lg ${
-        type === 'success' ? 'bg-green-500' : 'bg-red-500'
-    } text-white`;
-    notification.textContent = message;
-    
-    document.body.appendChild(notification);
-    
-    setTimeout(() => {
-        notification.remove();
-    }, 3000);
-}
-    </script>
 </body>
 </html>

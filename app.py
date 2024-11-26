@@ -17,6 +17,7 @@ import base64
 from PIL import Image
 import io
 
+
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -1236,92 +1237,63 @@ def internal_error(error):
 class PersonRecognitionSystem:
     def __init__(self):
         self.face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-        self.db_folder = "face_database"
-        if not os.path.exists(self.db_folder):
-            os.makedirs(self.db_folder)
 
-    def generate_person_id(self):
-        return str(uuid.uuid4())[:8]  # ID corto y único
-
-    def save_face_embedding(self, face_image, person_id):
-        # Generar embedding facial usando DeepFace
-        embedding = DeepFace.represent(face_image, model_name="VGG-Face", enforce_detection=False)
-        
-        # Guardar embedding en Firebase
-        db.collection('face_embeddings').document(person_id).set({
-            'embedding': embedding[0]['embedding'],
-            'created_at': firestore.SERVER_TIMESTAMP
-        })
-
-        return embedding[0]['embedding']
-
-    def find_similar_face(self, face_image):
-        try:
-            # Obtener embedding de la cara actual
-            current_embedding = DeepFace.represent(face_image, model_name="VGG-Face", enforce_detection=False)
-            
-            # Obtener todos los embeddings guardados
-            embeddings_ref = db.collection('face_embeddings').stream()
-            
-            for doc in embeddings_ref:
-                stored_embedding = doc.to_dict()['embedding']
-                # Comparar usando DeepFace
-                result = DeepFace.verify(
-                    img1_path=face_image,
-                    img2_path=stored_embedding,
-                    model_name="VGG-Face",
-                    distance_metric="cosine"
-                )
-                
-                if result["verified"]:
-                    return doc.id  # Retorna el ID de la persona si hay match
-                    
-            return None  # No se encontró match
-            
-        except Exception as e:
-            logger.error(f"Error in face comparison: {str(e)}")
-            return None
-
-    def process_frame(self, image_data):
+    def process_frame(self, image_data, check_only=False):
+        """
+        Procesa el frame de video
+        check_only: Si es True, solo verifica la presencia de un rostro
+        """
         try:
             # Convertir base64 a imagen
             image_bytes = base64.b64decode(image_data.split(',')[1])
             nparr = np.frombuffer(image_bytes, np.uint8)
             frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
-            # Detectar rostro
+            # Detectar rostros
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            faces = self.face_cascade.detectMultiScale(gray, 1.1, 5, minSize=(30, 30))
+            faces = self.face_cascade.detectMultiScale(
+                gray, 
+                scaleFactor=1.1, 
+                minNeighbors=5, 
+                minSize=(30, 30)
+            )
 
-            if len(faces) == 0:
+            # Si solo estamos verificando rostros
+            if check_only:
                 return {
-                    'success': False,
-                    'error': 'No face detected'
+                    'success': len(faces) == 1,
+                    'face_count': len(faces)
                 }
 
+            # Si no hay exactamente un rostro
+            if len(faces) != 1:
+                return {
+                    'success': False,
+                    'error': 'Multiple faces detected' if len(faces) > 1 else 'No face detected'
+                }
+
+            # Procesar el rostro detectado
             x, y, w, h = faces[0]
             face = frame[y:y+h, x:x+w]
 
-            # Buscar persona existente
+            # Buscar persona existente o crear nueva
             person_id = self.find_similar_face(face)
             is_new_person = person_id is None
 
-            # Si es nueva persona, crear ID y guardar
             if is_new_person:
                 person_id = self.generate_person_id()
                 self.save_face_embedding(face, person_id)
                 
-                # Crear documento de persona en Firebase
+                # Crear documento de persona
                 db.collection('persons').document(person_id).set({
                     'created_at': firestore.SERVER_TIMESTAMP,
-                    'measurements_count': 0,
-                    'last_seen': firestore.SERVER_TIMESTAMP
+                    'measurements_count': 0
                 })
 
             # Analizar edad y emoción
             analysis = DeepFace.analyze(face, actions=['age', 'emotion'], enforce_detection=False)[0]
 
-            results = {
+            return {
                 'success': True,
                 'person_id': person_id,
                 'is_new_person': is_new_person,
@@ -1337,8 +1309,6 @@ class PersonRecognitionSystem:
                 'timestamp': datetime.now().isoformat()
             }
 
-            return results
-
         except Exception as e:
             logger.error(f"Error processing frame: {str(e)}")
             return {
@@ -1346,145 +1316,294 @@ class PersonRecognitionSystem:
                 'error': str(e)
             }
 
-    def save_measurement(self, data):
+    def generate_person_id(self):
+        """Genera un ID único para una nueva persona"""
+        return str(uuid.uuid4())[:8]
+
+    def find_similar_face(self, face_image):
+        """Busca una cara similar en la base de datos"""
         try:
-            person_id = data['person_id']
+            # Obtener embedding de la cara actual
+            current_embedding = DeepFace.represent(face_image, model_name="VGG-Face", enforce_detection=False)
             
-            # Crear documento de medición
-            measurement_data = {
-                'person_id': person_id,
-                'timestamp': firestore.SERVER_TIMESTAMP,
-                'age': data['age'],
-                'emotion': data['emotion'],
-                'emotion_confidence': data['emotion_confidence'],
-                'barn_id': '1',  # Por ahora hardcoded
-                # Aquí agregaremos weight, length, width cuando los tengamos
-            }
+            # Obtener embeddings guardados
+            embeddings_ref = db.collection('face_embeddings').stream()
+            
+            min_distance = float('inf')
+            best_match_id = None
+            threshold = 0.35  # Umbral de similitud
+            
+            for doc in embeddings_ref:
+                stored_data = doc.to_dict()
+                stored_embedding = stored_data['embedding']
+                
+                try:
+                    result = DeepFace.verify(
+                        img1_path=face_image,
+                        img2_path=stored_embedding,
+                        model_name="VGG-Face",
+                        distance_metric="cosine",
+                        enforce_detection=False
+                    )
+                    
+                    distance = result["distance"]
+                    if distance < min_distance:
+                        min_distance = distance
+                        best_match_id = doc.id
+                        
+                except Exception as e:
+                    logger.warning(f"Error comparing embeddings: {str(e)}")
+                    continue
+            
+            return best_match_id if min_distance < threshold else None
+            
+        except Exception as e:
+            logger.error(f"Error in face comparison: {str(e)}")
+            return None
 
-            # Guardar medición
-            measurement_ref = db.collection('measurements').add(measurement_data)
-
-            # Actualizar documento de la persona
-            person_ref = db.collection('persons').document(person_id)
-            person_ref.update({
-                'last_seen': firestore.SERVER_TIMESTAMP,
-                'measurements_count': firestore.Increment(1),
-                'last_measurement': measurement_data
+    def save_face_embedding(self, face_image, person_id):
+        """Guarda el embedding facial en la base de datos"""
+        try:
+            embedding = DeepFace.represent(face_image, model_name="VGG-Face", enforce_detection=False)
+            
+            db.collection('face_embeddings').document(person_id).set({
+                'embedding': embedding[0]['embedding'],
+                'created_at': firestore.SERVER_TIMESTAMP
             })
 
-            return True, measurement_ref[1].id
-
+            return True
         except Exception as e:
-            logger.error(f"Error saving measurement: {str(e)}")
-            return False, str(e)
+            logger.error(f"Error saving face embedding: {str(e)}")
+            return False
 
-# Inicializar sistema
+    def save_measurement(self, data):
+            """Guarda una medición completa automáticamente"""
+            try:
+                person_id = data['person_id']
+                timestamp = firestore.SERVER_TIMESTAMP
+                
+                # Crear la sesión de medición
+                session_ref = db.collection('measurement_sessions').document()
+                session_id = session_ref.id
+                
+                # Datos de la sesión
+                measurement_data = {
+                    'session_id': session_id,
+                    'person_id': person_id,
+                    'timestamp': timestamp,
+                    'measurement_type': 'automatic',
+                    'status': 'active',
+                    'biometrics': {
+                        'age': data.get('age'),
+                        'weight': data.get('weight'),
+                        'height': data.get('height'),
+                        'width': data.get('width')
+                    },
+                    'facial_analysis': {
+                        'emotion': data.get('emotion'),
+                        'emotion_confidence': data.get('emotion_confidence'),
+                        'face_location': data.get('face_location')
+                    },
+                    'metadata': {
+                        'captured_at': data.get('timestamp'),
+                        'is_new_person': data.get('is_new_person', False),
+                        'device_type': 'camera_system',
+                        'measurement_method': 'automatic',
+                        'software_version': '1.0'
+                    }
+                }
+                
+                # Guardar la medición
+                session_ref.set(measurement_data)
+                
+                # Actualizar el documento de la persona
+                db.collection('persons').document(person_id).update({
+                    'last_measurement': timestamp,
+                    'last_session_id': session_id,
+                    'measurements_count': firestore.Increment(1),
+                    'latest_biometrics': measurement_data['biometrics'],
+                    'last_seen': timestamp
+                })
+                
+                # Registrar en el historial
+                history_ref = db.collection('measurement_history').document()
+                history_data = {
+                    'session_id': session_id,
+                    'person_id': person_id,
+                    'timestamp': timestamp,
+                    'biometrics': measurement_data['biometrics'],
+                    'changes': self.calculate_changes(person_id, measurement_data['biometrics'])
+                }
+                history_ref.set(history_data)
+                
+                return True, {
+                    'session_id': session_id,
+                    'data': measurement_data
+                }
+                
+            except Exception as e:
+                logger.error(f"Error saving measurement: {str(e)}")
+                return False, str(e)
+            
+    def calculate_changes(self, person_id, new_biometrics):
+        """Calcula cambios respecto a la última medición"""
+        try:
+            last_measurement = db.collection('persons')\
+                               .document(person_id)\
+                               .get()\
+                               .to_dict()\
+                               .get('latest_biometrics', {})
+            
+            changes = {}
+            for metric in ['weight', 'height', 'width']:
+                old_value = last_measurement.get(metric, 0)
+                new_value = new_biometrics.get(metric, 0)
+                if old_value and new_value:
+                    changes[metric] = {
+                        'previous': old_value,
+                        'current': new_value,
+                        'change': new_value - old_value,
+                        'change_percentage': ((new_value - old_value) / old_value * 100) 
+                                           if old_value else 0
+                    }
+            
+            return changes
+            
+        except Exception as e:
+            logger.error(f"Error calculating changes: {str(e)}")
+            return {}
+
+# Inicializar el sistema
 recognition_system = PersonRecognitionSystem()
 
+# Rutas de la API
 @app.route('/api/process-frame', methods=['POST'])
 def process_frame():
+    """Procesa un frame de video"""
     try:
         data = request.json
-        image_data = data.get('image')
-
-        if not image_data:
+        if not data or 'image' not in data:
             return jsonify({'success': False, 'error': 'No image data provided'}), 400
 
-        results = recognition_system.process_frame(image_data)
+        check_only = data.get('check_only', False)
+        results = recognition_system.process_frame(data['image'], check_only)
+        
         return jsonify(results)
 
     except Exception as e:
-        logger.error(f"Error in process_frame: {str(e)}")
+        logger.error(f"Error in process_frame endpoint: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/save-measurement', methods=['POST'])
 def save_measurement():
     try:
         data = request.json
+        if not data or 'person_id' not in data:
+            return jsonify({'success': False, 'error': 'Invalid measurement data'}), 400
+            
         success, result = recognition_system.save_measurement(data)
-
+        
         if success:
             return jsonify({
                 'success': True,
-                'measurement_id': result
+                'result': result
             })
         else:
             return jsonify({
                 'success': False,
                 'error': result
             }), 500
-
+            
     except Exception as e:
-        logger.error(f"Error saving measurement: {str(e)}")
+        logger.error(f"Error in save_measurement endpoint: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
-
-
-###########
-class FaceAnalyzer:
+#height
+class HeightMeasurement:
     def __init__(self):
-        self.face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+        self.mp_pose = mp.solutions.pose
+        self.pose = self.mp_pose.Pose(
+            static_image_mode=True,
+            model_complexity=2,
+            min_detection_confidence=0.5
+        )
+        # Parámetros de referencia para la altura
+        self.KNOWN_DISTANCE = 200  # Distancia en cm de la cámara a la persona de referencia
+        self.KNOWN_HEIGHT = 183    # Altura real de la persona de referencia en cm
+        self.focal_length = None
 
-    def process_image(self, image_data):
+    def calculate_height(self, image_data):
         try:
-            # Convertir base64 a imagen
+            # Decodificar imagen base64
             image_bytes = base64.b64decode(image_data.split(',')[1])
             nparr = np.frombuffer(image_bytes, np.uint8)
             frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            
+            if frame is None:
+                raise ValueError("Could not decode image")
 
-            # Convertir a escala de grises para detección facial
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            # Convertir a RGB para MediaPipe
+            image_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            h, w, _ = frame.shape
 
-            # Detectar rostros
-            faces = self.face_cascade.detectMultiScale(
-                gray, 
-                scaleFactor=1.1, 
-                minNeighbors=5, 
-                minSize=(30, 30)
-            )
+            # Procesar imagen con MediaPipe
+            results = self.pose.process(image_rgb)
 
-            if len(faces) == 0:
+            if not results.pose_landmarks:
                 return {
                     'success': False,
-                    'error': 'No face detected'
+                    'error': 'No pose detected',
+                    'height': None
                 }
 
-            # Procesar el primer rostro encontrado
-            x, y, w, h = faces[0]
-            face = frame[y:y+h, x:x+w]
+            # Obtener puntos de referencia
+            landmarks = results.pose_landmarks.landmark
+            
+            # Obtener coordenadas de cabeza y pies
+            head_y = landmarks[0].y * h  # Punto superior de la cabeza
+            left_foot = landmarks[31].y * h
+            right_foot = landmarks[32].y * h
+            foot_y = max(left_foot, right_foot)  # Usar el pie más bajo
 
-            # Analizar con DeepFace
-            analysis = DeepFace.analyze(
-                face, 
-                actions=['age', 'emotion'], 
-                enforce_detection=False
-            )[0]
+            # Calcular altura en píxeles
+            pixel_height = foot_y - head_y
 
-            # Extraer resultados
-            results = {
+            # Calcular longitud focal si no está establecida
+            if self.focal_length is None:
+                self.focal_length = (self.KNOWN_HEIGHT * self.KNOWN_DISTANCE) / pixel_height
+
+            # Calcular altura real en centímetros
+            height_cm = (pixel_height * self.KNOWN_HEIGHT) / self.focal_length
+
+            # Crear visualización para debugging (opcional)
+            debug_image = frame.copy()
+            cv2.circle(debug_image, (int(landmarks[0].x * w), int(head_y)), 5, (0, 255, 0), -1)
+            cv2.circle(debug_image, (int(landmarks[31].x * w), int(foot_y)), 5, (0, 255, 0), -1)
+            cv2.line(debug_image, 
+                    (int(landmarks[0].x * w), int(head_y)),
+                    (int(landmarks[31].x * w), int(foot_y)),
+                    (255, 0, 0), 2)
+
+            # Convertir imagen de debug a base64
+            _, buffer = cv2.imencode('.jpg', debug_image)
+            debug_image_base64 = base64.b64encode(buffer).decode('utf-8')
+
+            return {
                 'success': True,
-                'age': analysis['age'],
-                'emotion': analysis['dominant_emotion'],
-                'emotion_confidence': max(analysis['emotion'].values()) / 100,
-                'face_location': {
-                    'x': int(x),
-                    'y': int(y),
-                    'width': int(w),
-                    'height': int(h)
-                },
-                'timestamp': datetime.now().isoformat()
+                'height': round(height_cm, 1),
+                'debug_image': f'data:image/jpeg;base64,{debug_image_base64}',
+                'reference_points': {
+                    'head': {'x': landmarks[0].x * w, 'y': head_y},
+                    'foot': {'x': landmarks[31].x * w, 'y': foot_y}
+                }
             }
-
-            return results
 
         except Exception as e:
-            logger.error(f"Error processing image: {str(e)}")
+            logger.error(f"Error calculating height: {str(e)}")
             return {
                 'success': False,
-                'error': str(e)
+                'error': str(e),
+                'height': None
             }
-
-# Inicializar analizador facial
-face_analyzer = FaceAnalyzer()
 
 @app.route('/live-monitoring')
 def live_monitoring():
