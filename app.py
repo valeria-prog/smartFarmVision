@@ -17,7 +17,8 @@ import base64
 from PIL import Image
 import io
 import mediapipe as mp
-
+import serial 
+import threading
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -57,6 +58,35 @@ try:
 except Exception as e:
     logger.error(f"Error initializing Firebase: {str(e)}")
     raise
+
+# Configuración del puerto serie
+SERIAL_PORT = 'COM9'  # Cambiar al puerto correspondiente
+BAUD_RATE = 9600
+arduino_data = {"weight": 0.0}  # Variable global para almacenar el peso
+
+def read_arduino():
+    global arduino_data
+    try:
+        ser = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=1)
+        while True:
+            if ser.in_waiting > 0:
+                line = ser.readline().decode('utf-8').strip()
+                try:
+                    # Intenta convertir la línea en un número flotante
+                    weight = float(line)
+                    arduino_data["weight"] = weight
+                    
+                except ValueError:
+                    # Ignora líneas no numéricas
+                    print(f"Invalid data received: {line}")
+    except serial.SerialException as e:
+        print(f"Error with serial port: {e}")
+
+
+# Iniciar el hilo para leer datos del Arduino
+arduino_thread = threading.Thread(target=read_arduino, daemon=True)
+arduino_thread.start()
+
 
 # Login required decorator
 def login_required(f):
@@ -527,48 +557,32 @@ def initialize_farm_data():
 # Barn Management Routes
 @app.route('/api/barns', methods=['GET'])
 @login_required
-def get_barns_data():
+def get_barns():
+    """Fetch all barns for the user's farm"""
     try:
         user_id = session.get('user_id')
         user_doc = db.collection('users').document(user_id).get()
         farm_id = user_doc.to_dict().get('farm_id')
-
-        # Fetch barns
-        barns_ref = db.collection('barns').where('farm_id', '==', farm_id).where('status', '!=', 'deleted').stream()
+        
+        # Query barns for the current farm
+        barns_ref = db.collection('barns').where('farm_id', '==', farm_id).stream()
         barns = []
         for barn in barns_ref:
             barn_data = barn.to_dict()
-            barn_data['id'] = barn.id
-
-            # Calculate additional insights
-            barn_data['avg_age'] = barn_data.get('avg_age', 0)  # Replace with your calculation logic
-            barn_data['health_score'] = barn_data.get('health_score', 0)  # Replace with actual calculation
-            barn_data['alerts'] = barn_data.get('alerts', 0)  # Count of active alerts for this barn
-            barn_data['avg_weight'] = barn_data.get('avg_weight', 0)  # Replace with actual data
-            barn_data['avg_length'] = barn_data.get('avg_length', 0)  # Replace with actual data
-
+            barn_data['id'] = barn.id  # Add barn ID to the data
             barns.append(barn_data)
-
-        # Calculate stats (optional, already done previously)
-        total_barns = len(barns)
-        total_capacity = sum(barn.get('capacity', 0) for barn in barns)
-        total_current_count = sum(barn.get('current_count', 0) for barn in barns)
-        active_alerts_ref = db.collection('alerts').where('farm_id', '==', farm_id).where('status', '==', 'active').stream()
-        active_alerts = len(list(active_alerts_ref))
-
-        average_occupancy = (total_current_count / total_capacity * 100) if total_capacity > 0 else 0
-
+        
         return jsonify({
             'success': True,
             'barns': barns,
-            'total_barns': total_barns,
-            'total_capacity': total_capacity,
-            'average_occupancy': average_occupancy,
-            'active_alerts': active_alerts
+            'total_barns': len(barns),
+            'total_capacity': sum(barn.get('capacity', 0) for barn in barns),
+            'average_occupancy': (sum(barn.get('current_count', 0) for barn in barns) / max(1, sum(barn.get('capacity', 1) for barn in barns))) * 100,
+            'active_alerts': sum(1 for barn in barns if barn.get('health_score', 100) < 70)  # Example alert logic
         })
     except Exception as e:
-        logger.error(f"Error fetching barns data: {str(e)}")
-        return jsonify({'error': 'Failed to fetch barns data'}), 500
+        logger.error(f"Error fetching barns: {str(e)}")
+        return jsonify({'success': False, 'message': 'Failed to fetch barns'}), 500
 
 
 
@@ -1238,12 +1252,14 @@ def internal_error(error):
 class PersonRecognitionSystem:
     def __init__(self):
         self.face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-
+       
     def process_frame(self, image_data, check_only=False):
         """
-        Procesa el frame de video
+        Procesa el frame de video y agrega el dato del peso
         check_only: Si es True, solo verifica la presencia de un rostro
         """
+        global arduino_data  # Variable global donde se almacena el peso actual
+
         try:
             # Convertir base64 a imagen
             image_bytes = base64.b64decode(image_data.split(',')[1])
@@ -1263,37 +1279,47 @@ class PersonRecognitionSystem:
             if check_only:
                 return {
                     'success': len(faces) == 1,
-                    'face_count': len(faces)
+                    'face_count': len(faces),
+                    'weight': arduino_data["weight"]  # Agregar peso a la respuesta
                 }
 
             # Si no hay exactamente un rostro
             if len(faces) != 1:
                 return {
                     'success': False,
-                    'error': 'Multiple faces detected' if len(faces) > 1 else 'No face detected'
+                    'error': 'Multiple faces detected' if len(faces) > 1 else 'No face detected',
+                    'weight': arduino_data["weight"]  # Agregar peso a la respuesta
                 }
-
             # Procesar el rostro detectado
-            x, y, w, h = faces[0]
-            face = frame[y:y+h, x:x+w]
+            if len(faces) == 1:
+                x, y, w, h = faces[0]
+                face = frame[y:y+h, x:x+w]
 
-            # Buscar persona existente o crear nueva
-            person_id = self.find_similar_face(face)
-            is_new_person = person_id is None
+                # Buscar persona existente o crear nueva
+                person_id = self.find_similar_face(face)
+                is_new_person = person_id is None
 
-            if is_new_person:
-                person_id = self.generate_person_id()
-                self.save_face_embedding(face, person_id)
-                
-                # Crear documento de persona
-                db.collection('persons').document(person_id).set({
-                    'created_at': firestore.SERVER_TIMESTAMP,
-                    'measurements_count': 0
+                if is_new_person:
+                    person_id = self.generate_person_id()
+                    self.save_face_embedding(face, person_id)
+                    
+                    # Crear documento de persona
+                    db.collection('persons').document(person_id).set({
+                        'created_at': firestore.SERVER_TIMESTAMP,
+                        'measurements_count': 0
                 })
+            else:
+                # Handle case where no face or multiple faces are detected
+                return {
+                    'success': False,
+                    'error': 'Multiple faces detected' if len(faces) > 1 else 'No face detected',
+                    'weight': arduino_data["weight"]
+                }
 
             # Analizar edad y emoción
             analysis = DeepFace.analyze(face, actions=['age', 'emotion'], enforce_detection=False)[0]
 
+            # Respuesta exitosa con análisis y peso
             return {
                 'success': True,
                 'person_id': person_id,
@@ -1307,6 +1333,7 @@ class PersonRecognitionSystem:
                     'width': int(w),
                     'height': int(h)
                 },
+                'weight': arduino_data["weight"],  # Agregar peso a la respuesta
                 'timestamp': datetime.now().isoformat()
             }
 
@@ -1314,7 +1341,8 @@ class PersonRecognitionSystem:
             logger.error(f"Error processing frame: {str(e)}")
             return {
                 'success': False,
-                'error': str(e)
+                'error': str(e),
+                'weight': arduino_data["weight"]  # Incluir peso en caso de error
             }
 
     def generate_person_id(self):
@@ -1497,26 +1525,17 @@ def process_frame():
 
 @app.route('/api/save-measurement', methods=['POST'])
 def save_measurement():
+    """Save the measurement data along with the current weight."""
+    global arduino_data
+    data = request.get_json()
     try:
-        data = request.json
-        if not data or 'person_id' not in data:
-            return jsonify({'success': False, 'error': 'Invalid measurement data'}), 400
-            
-        success, result = recognition_system.save_measurement(data)
-        
-        if success:
-            return jsonify({
-                'success': True,
-                'result': result
-            })
-        else:
-            return jsonify({
-                'success': False,
-                'error': result
-            }), 500
-            
+        # Agregar el peso actual al conjunto de datos de medición
+        data['weight'] = arduino_data["weight"]
+        # Aquí se guardan los datos en Firebase o la base de datos
+        db.collection('measurements').add(data)
+        return jsonify({'success': True, 'message': 'Measurement saved successfully!', 'weight': data['weight']})
     except Exception as e:
-        logger.error(f"Error in save_measurement endpoint: {str(e)}")
+        logger.error(f"Error saving measurement: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 #height 252cm 
 class HeightMeasurement:
@@ -1627,6 +1646,16 @@ def process_height():
         logger.error(f"Error in process_height endpoint: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/api/weight', methods=['GET'])
+def get_weight():
+    """Serve the current weight from arduino_data."""
+    global arduino_data
+    try:
+        return jsonify({'success': True, 'weight': arduino_data["weight"]})
+    except Exception as e:
+        app.logger.error(f"Error serving weight data: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 
 
 @app.route('/live-monitoring')
@@ -1636,4 +1665,4 @@ def live_monitoring():
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run()

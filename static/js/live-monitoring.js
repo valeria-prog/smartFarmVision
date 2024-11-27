@@ -47,6 +47,8 @@ async function startCamera() {
         elements.stopButton.classList.remove('hidden');
         state.isActive = true;
         
+           // Conectar al puerto COM9
+           await connectToSerial();
         // Iniciar monitoreo de rostros
         startFaceMonitoring();
     } catch (error) {
@@ -148,61 +150,66 @@ function captureFrame() {
 
 async function captureAndProcess() {
     if (state.isProcessing) return;
-    
+
     try {
         state.isProcessing = true;
         elements.processingIndicator.classList.remove('hidden');
-        
-        // Capturar imagen
-        const imageData = captureFrame();
-        
-        // Procesar imagen para análisis facial
+
+        const imageData = captureFrame(); // Capturar el frame actual
         const response = await fetch('/api/process-frame', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ image: imageData })
+            body: JSON.stringify({ image: imageData }),
         });
-        
+
         const data = await response.json();
-        
+
         if (data.success) {
-            // Actualizar UI con datos del análisis facial
-            updateUI(data);
-            
-            // Calcular medidas simuladas (esto se reemplazará con tus cálculos reales)
+            updateUI(data); // Actualizar UI con análisis facial
             const measurements = calculateMeasurements(data.face_location);
-            
-            // Combinar datos de análisis facial con medidas físicas
+
+            // Obtener el peso actual del backend
+            const weightResponse = await fetch('/api/weight');
+            const weightData = await weightResponse.json();
+
+            const weightDisplayValue = weightData.success && !isNaN(weightData.weight)
+                ? `${weightData.weight.toFixed(1)} kg`
+                : "00.0 kg";
+
+            // Actualizar el cuadro de mediciones con el peso capturado
+            const measurementsWeightDisplay = document.querySelector('#measurementsWeight');
+            measurementsWeightDisplay.textContent = `Weight: ${weightDisplayValue}`;
+
+            // Actualizar Live Weight con el peso capturado
+            const liveWeightDisplay = document.getElementById('weightValue');
+            liveWeightDisplay.textContent = `Weight: ${weightDisplayValue}`;
+
+            // Guardar la medición en el backend
             const measurementData = {
                 person_id: data.person_id,
-                is_new_person: data.is_new_person,
                 age: data.age,
                 emotion: data.emotion,
-                emotion_confidence: data.emotion_confidence,
-                weight: measurements.weight,
+                weight: weightData.weight || 0, // Guardar 0 si no hay peso válido
                 height: measurements.height,
                 width: measurements.width,
-                face_location: data.face_location,
-                timestamp: new Date().toISOString()
+                timestamp: new Date().toISOString(),
             };
-            
-            // Guardar medición completa
+
             const saveResponse = await fetch('/api/save-measurement', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(measurementData)
+                body: JSON.stringify(measurementData),
             });
-            
+
             const saveResult = await saveResponse.json();
-            
+
             if (saveResult.success) {
                 showNotification('Measurement saved successfully', 'success');
             } else {
                 throw new Error(saveResult.error);
             }
-            
-            // Iniciar período de cooldown
-            startCooldown();
+
+            startCooldown(); // Iniciar período de cooldown
         }
     } catch (error) {
         console.error('Error in capture and process:', error);
@@ -320,6 +327,126 @@ async function measureHeight() {
     }
 }
 
+function updateFrameData() {
+    fetch('/api/process-frame', {
+        method: 'POST',
+        body: JSON.stringify({ image: capturedFrameData }),
+        headers: { 'Content-Type': 'application/json' }
+    })
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById('serial-data').innerText = data.serial_data || "Sin datos";
+    });
+}
+setInterval(updateFrameData, 1000);  // Actualizar cada segundo
+
+
+
+let port;
+let reader;
+let decoder;
+let streamDefaultWriter;
+
+// Función para conectar al puerto serie
+async function connectToSerial() {
+    try {
+        // Solicitar acceso al puerto serie
+        port = await navigator.serial.requestPort();
+        await port.open({ baudRate: 9600 }); // Configura el baudRate según lo que tu dispositivo necesite
+        
+        decoder = new TextDecoderStream(); // Para convertir datos binarios a texto
+        streamDefaultWriter = port.writable.getWriter(); // Si quieres escribir algo en el puerto
+
+        // Leer los datos del puerto
+        reader = port.readable.getReader();
+        readSerialData(); // Comienza a leer datos
+    } catch (error) {
+        console.error('Error connecting to serial port:', error);
+    }
+}
+
+// Función para leer los datos del puerto
+async function readSerialData() {
+    try {
+        while (true) {
+            // Leer datos del puerto
+            const { value, done } = await reader.read();
+            if (done) {
+                reader.releaseLock();
+                break;
+            }
+
+            // Suponiendo que los datos recibidos sean texto
+            const receivedData = new TextDecoder().decode(value);
+            console.log('Received from serial:', receivedData);
+
+            // Mostrar en la interfaz
+            updateSerialData(receivedData);
+        }
+    } catch (error) {
+        console.error('Error reading from serial port:', error);
+    }
+}
+
+// Actualizar la interfaz con los datos recibidos del puerto
+function updateSerialData(data) {
+    const serialDataElement = document.getElementById('serialData');
+    serialDataElement.textContent = `Data from serial: ${data}`;
+}
+
+// Elemento para mostrar el peso
+const weightDisplay = document.getElementById('weightValue');
+
+async function fetchFrameData() {
+    try {
+        const response = await fetch('/api/process-frame', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image: "dummy_image_data" }) // Simula un frame
+        });
+
+        const data = await response.json();
+        console.log(data); // Este log debe mostrar el JSON completo
+        if (data.success && !isNaN(data.weight)) {
+            if (data.weight <= 0) {
+                weightDisplay.textContent = `Weight: ${data.weight.toFixed(1)} kg (Check sensor calibration)`;
+            } else {
+                weightDisplay.textContent = `Weight: ${data.weight.toFixed(1)} kg`;
+            }
+        } else {
+            weightDisplay.textContent = "Weight: 00.0 kg";
+        }
+              
+    } catch (error) {
+        console.error('Error fetching frame data:', error);
+    }
+}
+
+async function fetchWeightData() {
+    const weightDisplay = document.getElementById('weightValue');
+    try {
+        const response = await fetch('/api/weight');
+        const data = await response.json();
+
+        if (data.success && !isNaN(data.weight)) {
+            // Actualizar solo si hay un valor numérico válido
+            weightDisplay.textContent = `Weight: ${data.weight.toFixed(1)} kg`;
+        } else {
+            // Mantener 00.0 kg si no hay datos válidos
+            weightDisplay.textContent = "Weight: 00.0 kg";
+            console.error('Invalid weight data');
+        }
+    } catch (error) {
+        // Mostrar 00.0 kg si ocurre un error
+        weightDisplay.textContent = "Weight: 00.0 kg";
+        console.error('Error fetching weight data:', error);
+    }
+}
+
+// Llama a fetchWeightData periódicamente
+setInterval(fetchWeightData, 1000); // Actualiza el peso cada segundo
+// Actualizar cada 100ms
+setInterval(fetchFrameData, 500);
 // Llama a la función de medición periódicamente
 setInterval(measureHeight, 5000);  // Cada 5 segundos
 

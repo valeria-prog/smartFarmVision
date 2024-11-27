@@ -184,7 +184,7 @@
                 </button>
             </div>
             <!-- Update the form action to use the API endpoint -->
-<form id="addBarnForm" method="POST" action="{{ url_for('create_barn') }}">
+<form id="addBarnForm" onsubmit="event.preventDefault(); createBarn();">
     <div class="space-y-4">
          <div>
              <label class="block text-sm font-medium text-gray-700">Barn Name</label>
@@ -295,36 +295,36 @@
     <script>
         // Fetch barns data and update UI
         function fetchBarns() {
-            console.log('Fetching barns...');
-            fetch('/api/barns', { method: 'GET', headers: { 'Content-Type': 'application/json' } })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Network response was not ok');
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    if (!data.success) {
-                        console.error('Failed to fetch barns:', data.message);
-                        alert('Failed to load barns data');
-                        return;
-                    }
-    
-                    // Update barns display
-                    updateBarnsUI(data.barns);
-    
-                    // Update stats
-                    document.getElementById('total-barns').textContent = data.total_barns || 0;
-                    document.getElementById('total-capacity').textContent = data.total_capacity || 0;
-                    document.getElementById('average-occupancy').textContent =
-                        data.average_occupancy > 0 ? `${data.average_occupancy.toFixed(1)}%` : 'N/A';
-                    document.getElementById('active-alerts').textContent = data.active_alerts || 0;
-                })
-                .catch(error => {
-                    console.error('Error fetching barns:', error);
-                    alert('Error loading barns data');
-                });
+    console.log('Fetching barns...');
+    fetch('/api/barns', {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
         }
+        return response.json();
+    })
+    .then(data => {
+        if (!data.success) {
+            console.error('Failed to fetch barns:', data.message);
+            alert('Failed to load barns data');
+            return;
+        }
+        // Update the UI with barns data
+        updateBarnsUI(data.barns);
+        document.getElementById('total-barns').textContent = data.total_barns || 0;
+        document.getElementById('total-capacity').textContent = data.total_capacity || 0;
+        document.getElementById('average-occupancy').textContent =
+            data.average_occupancy > 0 ? `${data.average_occupancy.toFixed(1)}%` : 'N/A';
+        document.getElementById('active-alerts').textContent = data.active_alerts || 0;
+    })
+    .catch(error => {
+        console.error('Error fetching barns:', error);
+        alert('Error loading barns data');
+    });
+}
     
         // Update the UI with barns data
         function updateBarnsUI(barns) {
@@ -481,7 +481,40 @@ document.getElementById('barnForm').addEventListener('submit', function (e) {
     
         // Load barns data when the page is loaded
         document.addEventListener('DOMContentLoaded', fetchBarns);
+       
         
+        // Create a new barn
+function createBarn() {
+    const barnData = {
+        name: document.getElementById('barnNameInput').value,
+        capacity: document.getElementById('barnCapacityInput').value,
+        description: document.getElementById('barnDescriptionInput').value,
+        // Añadir otros campos si es necesario
+    };
+
+    fetch('/api/barns', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(barnData),
+    })
+    .then((response) => response.json())
+    .then((data) => {
+        if (data.success) {
+            alert('Barn created successfully!');
+            fetchBarns(); // Refresh the barns list
+            closeAddBarnModal(); // Close the modal after adding the barn
+        } else {
+            alert('Failed to create barn: ' + data.error);
+        }
+    })
+    .catch((error) => {
+        console.error('Error creating barn:', error);
+        alert('Error creating barn');
+    });
+}
+
     </script>
 </body>
 </html>

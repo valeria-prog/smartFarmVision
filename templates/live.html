@@ -10,7 +10,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
 </head>
-</head>
 <body class="bg-gray-100">
     <div class="flex h-screen">
         <!-- Sidebar Navigation -->
@@ -126,6 +125,12 @@
         
                 <!-- Right Column - Measurements -->
                 <div class="space-y-6">
+                    <!-- Weight Display -->
+                    <div id="liveWeight" class="p-4 bg-white shadow-md rounded">
+                        <h2 class="text-lg font-semibold">Live Data</h2>
+                        <p id="weightValue" class="text-gray-700">Weight: 00.0 kg</p>
+                    </div>
+
                     <div class="bg-white rounded-lg shadow">
                         <div class="p-4 border-b border-gray-200">
                             <h2 class="text-lg font-semibold text-gray-900">Live Measurements</h2>
@@ -144,20 +149,18 @@
                                     <span class="text-sm text-purple-600">Height</span>
                                     <p id="heightValue" class="text-2xl font-bold text-purple-900">-</p>
                                 </div>
-                                <div class="p-4 bg-purple-50 rounded-lg">
+                                <div class="p-4 bg-purple-50 rounded-lg"  id="liveWeight">
                                     <span class="text-sm text-purple-600">Weight</span>
-                                    <p id="weightValue" class="text-2xl font-bold text-purple-900">-</p>
+                                    <p id="measurementsWeight" class="text-2xl font-bold text-purple-900">Weight: 00.0 kg</p>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-            
         </div>
 
-   <!-- Agregar el script al final del body -->
-<script src="{{ url_for('static', filename='js/live-monitoring.js') }}"></script>
-
+    <!-- Script inclusion -->
+    <script src="{{ url_for('static', filename='js/live-monitoring.js') }}"></script>
 </body>
 </html>
