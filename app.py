@@ -1406,73 +1406,68 @@ class PersonRecognitionSystem:
             return False
 
     def save_measurement(self, data):
-            """Guarda una medición completa automáticamente"""
-            try:
-                person_id = data['person_id']
-                timestamp = firestore.SERVER_TIMESTAMP
-                
-                # Crear la sesión de medición
-                session_ref = db.collection('measurement_sessions').document()
-                session_id = session_ref.id
-                
-                # Datos de la sesión
-                measurement_data = {
-                    'session_id': session_id,
-                    'person_id': person_id,
-                    'timestamp': timestamp,
-                    'measurement_type': 'automatic',
-                    'status': 'active',
-                    'biometrics': {
-                        'age': data.get('age'),
-                        'weight': data.get('weight'),
-                        'height': data.get('height'),
-                        'width': data.get('width')
-                    },
-                    'facial_analysis': {
-                        'emotion': data.get('emotion'),
-                        'emotion_confidence': data.get('emotion_confidence'),
-                        'face_location': data.get('face_location')
-                    },
-                    'metadata': {
-                        'captured_at': data.get('timestamp'),
-                        'is_new_person': data.get('is_new_person', False),
-                        'device_type': 'camera_system',
-                        'measurement_method': 'automatic',
-                        'software_version': '1.0'
-                    }
+        """Guarda una medición unificada incluyendo altura MediaPipe"""
+        try:
+            person_id = data['person_id']
+            timestamp = firestore.SERVER_TIMESTAMP
+            
+            # Crear documento de medición unificado
+            measurement_data = {
+                'person_id': person_id,
+                'timestamp': timestamp,
+                'biometrics': {
+                    'age': data.get('age'),
+                    'weight': data.get('weight')
+                },
+                'physical_measurements': {
+                    'height': data.get('height'),  # Asegurarse que la altura se guarde aquí
+                    'calculated_at': datetime.now().isoformat()
+                },
+                'facial_analysis': {
+                    'emotion': data.get('emotion'),
+                    'emotion_confidence': data.get('emotion_confidence')
+                },
+                'metadata': {
+                    'captured_at': data.get('timestamp'),
+                    'device_type': 'camera_system',
+                    'measurement_method': 'automatic',
+                    'software_version': '1.0'
                 }
-                
-                # Guardar la medición
-                session_ref.set(measurement_data)
-                
-                # Actualizar el documento de la persona
-                db.collection('persons').document(person_id).update({
-                    'last_measurement': timestamp,
-                    'last_session_id': session_id,
-                    'measurements_count': firestore.Increment(1),
-                    'latest_biometrics': measurement_data['biometrics'],
-                    'last_seen': timestamp
+            }
+            
+            # Guardar en la colección de mediciones
+            measurement_ref = db.collection('measurements').add(measurement_data)
+            
+            # Actualizar el documento de la persona
+            person_ref = db.collection('persons').document(person_id)
+            person_doc = person_ref.get()
+            
+            person_update = {
+                'measurements_count': firestore.Increment(1),
+                'latest_measurement': measurement_data['biometrics'],
+                'last_seen': timestamp
+            }
+            
+            # Agregar altura solo si existe
+            if data.get('height'):
+                person_update['latest_height'] = data['height']
+            
+            if person_doc.exists:
+                person_ref.update(person_update)
+            else:
+                person_ref.set({
+                    'created_at': timestamp,
+                    **person_update
                 })
-                
-                # Registrar en el historial
-                history_ref = db.collection('measurement_history').document()
-                history_data = {
-                    'session_id': session_id,
-                    'person_id': person_id,
-                    'timestamp': timestamp,
-                    'biometrics': measurement_data['biometrics'],
-                    'changes': self.calculate_changes(person_id, measurement_data['biometrics'])
-                }
-                history_ref.set(history_data)
-                
-                return True, {
-                    'session_id': session_id,
-                    'data': measurement_data
-                }
-                
-            except Exception as e:
-                logger.error(f"Error saving measurement: {str(e)}")
-                return False, str(e)
+            
+            return True, {
+                'measurement_id': measurement_ref[1].id,
+                'data': measurement_data
+            }
+            
+        except Exception as e:
+            logger.error(f"Error saving measurement: {str(e)}")
+            return False, str(e)
             
     def calculate_changes(self, person_id, new_biometrics):
         """Calcula cambios respecto a la última medición"""
@@ -1525,17 +1520,43 @@ def process_frame():
 
 @app.route('/api/save-measurement', methods=['POST'])
 def save_measurement():
-    """Save the measurement data along with the current weight."""
-    global arduino_data
-    data = request.get_json()
+    """Endpoint unificado para guardar mediciones incluyendo altura MediaPipe"""
     try:
-        # Agregar el peso actual al conjunto de datos de medición
-        data['weight'] = arduino_data["weight"]
-        # Aquí se guardan los datos en Firebase o la base de datos
-        db.collection('measurements').add(data)
-        return jsonify({'success': True, 'message': 'Measurement saved successfully!', 'weight': data['weight']})
+        data = request.get_json()
+        logger.info(f"Received measurement data: {data}")  # Añadir log para debug
+        
+        # Añadir peso del arduino
+        data['weight'] = arduino_data.get("weight", 0)
+        
+        # Calcular altura si hay imagen
+        if data.get('image'):
+            height_result = height_measurement.calculate_height(data['image'])
+            if height_result.get('success'):
+                data['height'] = height_result['height']
+                logger.info(f"Height calculated successfully: {data['height']} cm")
+            else:
+                logger.warning(f"Height calculation failed: {height_result.get('error')}")
+        
+        # Guardar medición
+        success, result = recognition_system.save_measurement(data)
+        
+        if success:
+            logger.info(f"Measurement saved successfully: {result}")
+            return jsonify({
+                'success': True,
+                'message': 'Measurement saved successfully!',
+                'measurement_id': result['measurement_id'],
+                'data': result['data']
+            })
+        else:
+            logger.error(f"Failed to save measurement: {result}")
+            return jsonify({
+                'success': False,
+                'error': result
+            }), 500
+            
     except Exception as e:
-        logger.error(f"Error saving measurement: {e}")
+        logger.error(f"Error in save_measurement endpoint: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 #height 252cm 
 class HeightMeasurement:
@@ -1547,7 +1568,7 @@ class HeightMeasurement:
             min_detection_confidence=0.5
         )
         # Parámetros de referencia para la altura
-        self.KNOWN_DISTANCE = 200  # Distancia en cm de la cámara a la persona de referencia
+        self.KNOWN_DISTANCE = 210  # Distancia en cm de la cámara a la persona de referencia
         self.KNOWN_HEIGHT = 183    # Altura real de la persona de referencia en cm
         self.focal_length = None
 

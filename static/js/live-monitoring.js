@@ -156,6 +156,8 @@ async function captureAndProcess() {
         elements.processingIndicator.classList.remove('hidden');
 
         const imageData = captureFrame(); // Capturar el frame actual
+        
+        // 1. Procesar frame
         const response = await fetch('/api/process-frame', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -165,10 +167,18 @@ async function captureAndProcess() {
         const data = await response.json();
 
         if (data.success) {
-            updateUI(data); // Actualizar UI con análisis facial
-            const measurements = calculateMeasurements(data.face_location);
+            updateUI(data);
+            
+            // 2. Calcular altura con MediaPipe
+            const heightResponse = await fetch('/api/height-measurement', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image: imageData })
+            });
 
-            // Obtener el peso actual del backend
+            const heightData = await heightResponse.json();
+            
+            // 3. Obtener peso
             const weightResponse = await fetch('/api/weight');
             const weightData = await weightResponse.json();
 
@@ -176,23 +186,27 @@ async function captureAndProcess() {
                 ? `${weightData.weight.toFixed(1)} kg`
                 : "00.0 kg";
 
-            // Actualizar el cuadro de mediciones con el peso capturado
+            // 4. Actualizar UI
             const measurementsWeightDisplay = document.querySelector('#measurementsWeight');
             measurementsWeightDisplay.textContent = `Weight: ${weightDisplayValue}`;
 
-            // Actualizar Live Weight con el peso capturado
             const liveWeightDisplay = document.getElementById('weightValue');
             liveWeightDisplay.textContent = `Weight: ${weightDisplayValue}`;
 
-            // Guardar la medición en el backend
+            if (heightData.success) {
+                const heightDisplay = document.getElementById('heightValue');
+                heightDisplay.textContent = `${heightData.height} cm`;
+            }
+
+            // 5. Guardar medición con la altura de MediaPipe
             const measurementData = {
                 person_id: data.person_id,
                 age: data.age,
                 emotion: data.emotion,
-                weight: weightData.weight || 0, // Guardar 0 si no hay peso válido
-                height: measurements.height,
-                width: measurements.width,
-                timestamp: new Date().toISOString(),
+                emotion_confidence: data.emotion_confidence,
+                weight: weightData.weight || 0,
+                height: heightData.success ? heightData.height : null,  // Usar altura de MediaPipe
+                timestamp: new Date().toISOString()
             };
 
             const saveResponse = await fetch('/api/save-measurement', {
@@ -209,7 +223,7 @@ async function captureAndProcess() {
                 throw new Error(saveResult.error);
             }
 
-            startCooldown(); // Iniciar período de cooldown
+            startCooldown();
         }
     } catch (error) {
         console.error('Error in capture and process:', error);
