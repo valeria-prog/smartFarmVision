@@ -1567,84 +1567,100 @@ class HeightMeasurement:
             model_complexity=2,
             min_detection_confidence=0.5
         )
-        # Parámetros de referencia para la altura
-        self.KNOWN_DISTANCE = 210  # Distancia en cm de la cámara a la persona de referencia
-        self.KNOWN_HEIGHT = 183    # Altura real de la persona de referencia en cm
-        self.focal_length = None
+        # Configuración estática
+        self.KNOWN_DISTANCE = 200  # Valor fijo
+        self.KNOWN_HEIGHT = 155    # Valor fijo
+        self.CALIBRATION_FACTOR = 0.803 # Valor fijo
+        self.focal_length = 500    # Valor estático definido
+    def load_calibration(self):
+        try:
+            calibration_doc = db.collection('system_settings').document('height_calibration').get()
+            if calibration_doc.exists:
+                calibration = calibration_doc.to_dict()
+                self.KNOWN_DISTANCE = calibration.get('known_distance', 200)  # Usa valores predeterminados si fallan
+                self.KNOWN_HEIGHT = calibration.get('known_height', 155)
+                self.CALIBRATION_FACTOR = calibration.get('calibration_factor', 0.066)
+                self.focal_length = calibration.get('focal_length', 500)
+                logger.info(f"Calibración cargada: {calibration}")
+            else:
+                logger.warning("No calibration found in Firestore. Using default values.")
+        except Exception as e:
+            logger.error(f"Error loading calibration: {e}")
+            # Valores estáticos en caso de error
+            self.KNOWN_DISTANCE = 200
+            self.KNOWN_HEIGHT = 155
+            self.CALIBRATION_FACTOR = 0.803
+            self.focal_length = 500
+
+    def save_calibration(self):
+        try:
+            db.collection('system_settings').document('height_calibration').set({
+                'known_distance': self.KNOWN_DISTANCE,
+                'known_height': self.KNOWN_HEIGHT,
+                'calibration_factor': self.CALIBRATION_FACTOR,
+                'focal_length': self.focal_length,
+                'last_updated': firestore.SERVER_TIMESTAMP
+            })
+            logger.info("Calibración guardada exitosamente")
+        except Exception as e:
+            logger.error(f"Error saving calibration: {e}")
+
+    def calibrate_with_known_height(self, actual_height, image_data):
+        """Calibrar el sistema usando una altura conocida"""
+        try:
+            # Obtener medición actual
+            result = self.calculate_height(image_data)
+            if not result['success']:
+                return False, "No se pudo detectar la pose"
+
+            # Calcular factor de calibración
+            measured_height = result['height']
+            self.CALIBRATION_FACTOR = actual_height / measured_height
+
+            # Guardar nueva calibración
+            self.save_calibration()
+            
+            return True, f"Sistema calibrado. Factor: {self.CALIBRATION_FACTOR}"
+        except Exception as e:
+            logger.error(f"Error en calibración: {e}")
+            return False, str(e)
+
 
     def calculate_height(self, image_data):
         try:
-            # Decodificar imagen base64
             image_bytes = base64.b64decode(image_data.split(',')[1])
             nparr = np.frombuffer(image_bytes, np.uint8)
             frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-            
             if frame is None:
                 raise ValueError("Could not decode image")
 
-            # Convertir a RGB para MediaPipe
             image_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             h, w, _ = frame.shape
 
-            # Procesar imagen con MediaPipe
             results = self.pose.process(image_rgb)
-
             if not results.pose_landmarks:
-                return {
-                    'success': False,
-                    'error': 'No pose detected',
-                    'height': None
-                }
+                return {'success': False, 'error': 'No pose detected', 'height': None}
 
-            # Obtener puntos de referencia
             landmarks = results.pose_landmarks.landmark
+            head_y = landmarks[0].y * h
+            foot_y = max(landmarks[31].y * h, landmarks[32].y * h)
+
+            # Validar si la cabeza está por encima de los pies
+            if foot_y <= head_y:
+                logger.error("Invalid pose: head below feet")
+                return {'success': False, 'error': 'Invalid pose detected'}
+
+            pixel_height = abs(foot_y - head_y)
             
-            # Obtener coordenadas de cabeza y pies
-            head_y = landmarks[0].y * h  # Punto superior de la cabeza
-            left_foot = landmarks[31].y * h
-            right_foot = landmarks[32].y * h
-            foot_y = max(left_foot, right_foot)  # Usar el pie más bajo
+            # Calcular altura real ajustada para la distancia larga
+            height_cm = (pixel_height * self.KNOWN_DISTANCE) / self.focal_length
+            height_cm = abs(height_cm) * self.CALIBRATION_FACTOR # Elimina los valores negativos
 
-            # Calcular altura en píxeles
-            pixel_height = foot_y - head_y
-
-            # Calcular longitud focal si no está establecida
-            if self.focal_length is None:
-                self.focal_length = (self.KNOWN_HEIGHT * self.KNOWN_DISTANCE) / pixel_height
-
-            # Calcular altura real en centímetros
-            height_cm = (pixel_height * self.KNOWN_HEIGHT) / self.focal_length
-
-            # Crear visualización para debugging (opcional)
-            debug_image = frame.copy()
-            cv2.circle(debug_image, (int(landmarks[0].x * w), int(head_y)), 5, (0, 255, 0), -1)
-            cv2.circle(debug_image, (int(landmarks[31].x * w), int(foot_y)), 5, (0, 255, 0), -1)
-            cv2.line(debug_image, 
-                    (int(landmarks[0].x * w), int(head_y)),
-                    (int(landmarks[31].x * w), int(foot_y)),
-                    (255, 0, 0), 2)
-
-            # Convertir imagen de debug a base64
-            _, buffer = cv2.imencode('.jpg', debug_image)
-            debug_image_base64 = base64.b64encode(buffer).decode('utf-8')
-
-            return {
-                'success': True,
-                'height': round(height_cm, 1),
-                'debug_image': f'data:image/jpeg;base64,{debug_image_base64}',
-                'reference_points': {
-                    'head': {'x': landmarks[0].x * w, 'y': head_y},
-                    'foot': {'x': landmarks[31].x * w, 'y': foot_y}
-                }
-            }
+            return {'success': True, 'height': round(height_cm, 1)}
 
         except Exception as e:
             logger.error(f"Error calculating height: {str(e)}")
-            return {
-                'success': False,
-                'error': str(e),
-                'height': None
-            }
+            return {'success': False, 'error': str(e), 'height': None}
 
 # Instancia de la clase HeightMeasurement
 height_measurement = HeightMeasurement()
