@@ -414,7 +414,7 @@ async function fetchFrameData() {
                 weightDisplay.textContent = `Weight: ${data.weight.toFixed(1)} kg`;
             }
         } else {
-            weightDisplay.textContent = "Weight: 00.0 kg";
+            weightDisplay.textContent = "Weight: 0.0 kg";
         }
               
     } catch (error) {
