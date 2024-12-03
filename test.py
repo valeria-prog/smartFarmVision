@@ -2,47 +2,145 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 
-# Simulated DataFrames for each time of day
-data_morning = {
-    'Weight': [82.5, 78.3, 74.1, 65.3, 83.0, 77.5, 66.3, 56.1, 60.9, 53.1],
-    'Height': [175, 178, 172, 167, 183, 172, 167, 162, 165, 160]
-}
-data_afternoon = {
-    'Weight': [97.7, 73.7, 83.0, 66.3, 60.9, 53.1, 56.1, 73.1, 77.4, 63.4],
-    'Height': [176.6, 175, 181, 167, 162, 165, 162, 172, 172, 160]
-}
-data_night = {
-    'Weight': [82.6, 71.9, 73.1, 55.3, 78.2, 76.7, 50.5, 60.9, 65.3, 82.6],
-    'Height': [175, 176, 172, 162, 181, 167, 160, 165, 167, 175]
-}
+# app.py
+from flask import Flask, render_template, redirect, url_for, flash, request, session, jsonify
+from functools import wraps
+import os
+from dotenv import load_dotenv
+import firebase_admin
+from firebase_admin import credentials, initialize_app, firestore, auth
+import logging
+from datetime import datetime
+from flask import jsonify, request
+import uuid
 
-# Convert to DataFrames
-df_morning = pd.DataFrame(data_morning)
-df_afternoon = pd.DataFrame(data_afternoon)
-df_night = pd.DataFrame(data_night)
+from deepface import DeepFace
 
-# Calculate averages
-avg_weight = [df_morning['Weight'].mean(), df_afternoon['Weight'].mean(), df_night['Weight'].mean()]
-avg_height = [df_morning['Height'].mean(), df_afternoon['Height'].mean(), df_night['Height'].mean()]
+import numpy as np
 
-# Plot
-times = ['Morning', 'Afternoon', 'Night']
-x = np.arange(len(times))
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-fig, ax = plt.subplots(figsize=(8, 5))
-bar_width = 0.35
+# Load environment variables
+load_dotenv()
 
-# Bars for weight and height
-ax.bar(x - bar_width/2, avg_weight, width=bar_width, label='Average Weight (kg)')
-ax.bar(x + bar_width/2, avg_height, width=bar_width, label='Average Height (cm)')
+# Initialize Flask app
+app = Flask(__name__)
+app.secret_key = os.getenv('SECRET_KEY', 'your-secret-key-here')  
 
-# Add labels
-ax.set_xlabel('Time of Day')
-ax.set_ylabel('Measurement')
-ax.set_title('Average Weight and Height Across Different Times of Day')
-ax.set_xticks(x)
-ax.set_xticklabels(times)
-ax.legend()
+# Initialize Firebase Admin SDK
+try:
+    cred = credentials.Certificate({
+        "type": "service_account",
+        "project_id": os.getenv('FIREBASE_PROJECT_ID'),
+        "private_key_id": os.getenv('FIREBASE_PRIVATE_KEY_ID'),
+        "private_key": os.getenv('FIREBASE_PRIVATE_KEY').replace('\\n', '\n'),
+        "client_email": os.getenv('FIREBASE_CLIENT_EMAIL'),
+        "client_id": os.getenv('FIREBASE_CLIENT_ID'),
+        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+        "token_uri": "https://oauth2.googleapis.com/token",
+        "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+        "client_x509_cert_url": os.getenv('FIREBASE_CLIENT_CERT_URL')
+    })
+    
+    # Initialize Firebase with a name
+    firebase_app = firebase_admin.initialize_app(cred, name='smartfarm')
+    
+    # Get Firestore and Auth instances
+    db = firestore.client(app=firebase_app)
+    auth_client = auth.Client(app=firebase_app)
+    
+    logger.info("Firebase initialized successfully")
+    
+except Exception as e:
+    logger.error(f"Error initializing Firebase: {str(e)}")
+    raise
 
-# Show plot
-plt.show()
+def update_barn_structure(barn_id):
+    db.collection('barns').document(barn_id).update({
+        'name': 'Subject Area #1',  # En lugar de "Barn #1"
+        'current_count': 0,  # Ahora contará subjects en lugar de animals
+        'capacity': 10,      # Capacidad máxima de subjects
+        'avg_age': 0,
+        'avg_weight': 0,
+        'health_score': 100,
+        'status': 'active',
+        'description': 'Area for subject monitoring',
+        'updated_at': firestore.SERVER_TIMESTAMP
+    })
+def assign_subjects_to_areas():
+    # Definir las áreas y sus grupos de subjects
+    area_assignments = {
+        '82AJsQmyI8oUlNXMapYJ': [  # Primera área
+            '84b4cd54', 
+            'aa02fc99', 
+            '99c5b4ed', 
+            'bf009e44',
+            'a1eb88dd'
+        ],
+        'FpuAcjxMmnq3YPdSKfhu': [  # Segunda área
+            'd7c2617b', 
+            'a080792a', 
+            '9ca183ea', 
+            '233d1c9a', 
+            '4c6950fc'
+        ]
+    }
+    
+    resultados = {}
+    
+    for area_id, subject_ids in area_assignments.items():
+        # Referencia al área
+        area_ref = db.collection('barns').document(area_id)
+        
+        total_weight = 0
+        total_age = 0
+        count = 0
+        
+        # Asignar subjects al área
+        for subject_id in subject_ids:
+            try:
+                # Actualizar el subject con el ID del área
+                db.collection('persons').document(subject_id).update({
+                    'area_id': area_id,  # Cambiado de barn_id a area_id
+                    'assigned_at': firestore.SERVER_TIMESTAMP
+                })
+                
+                # Obtener datos del subject para estadísticas
+                subject_doc = db.collection('persons').document(subject_id).get()
+                if subject_doc.exists:
+                    subject_data = subject_doc.to_dict()
+                    if 'latest_measurement' in subject_data:
+                        measurement = subject_data['latest_measurement']
+                        total_weight += measurement.get('weight', 0)
+                        total_age += measurement.get('age', 0)
+                        count += 1
+                        
+            except Exception as e:
+                print(f"Error con subject {subject_id}: {e}")
+        
+        # Actualizar estadísticas del área
+        if count > 0:
+            area_ref.update({
+                'avg_weight': total_weight / count,
+                'avg_age': total_age / count,
+                'current_count': count,
+                'updated_at': firestore.SERVER_TIMESTAMP
+            })
+        
+        resultados[area_id] = {
+            'subjects_asignados': count,
+            'promedio_peso': total_weight / count if count > 0 else 0,
+            'promedio_edad': total_age / count if count > 0 else 0
+        }
+    
+    return resultados
+
+# Para ejecutar y ver resultados
+resultados = assign_subjects_to_areas()
+for area_id, stats in resultados.items():
+    print(f"\nÁrea {area_id}:")
+    print(f"- Subjects asignados: {stats['subjects_asignados']}")
+    print(f"- Peso promedio: {stats['promedio_peso']:.2f} kg")
+    print(f"- Edad promedio: {stats['promedio_edad']:.1f} años")

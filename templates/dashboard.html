@@ -8,6 +8,7 @@
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body class="bg-gray-50">
     <div class="flex h-screen">
@@ -84,15 +85,6 @@
                         <h1 class="text-2xl font-bold text-gray-800">Dashboard Overview</h1>
                         <p class="text-gray-600">Welcome back! Here's what's happening in your farm.</p>
                     </div>
-                    <div class="flex items-center space-x-4">
-                        <button onclick="addNewBarn()" 
-                        class="flex items-center space-x-2 bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
-                    </svg>
-                    <span>Add Barn</span>
-                </button>
-                    </div>
                 </div>
             </div>
 
@@ -110,7 +102,7 @@
                                 12%
                             </span>
                         </div>
-                        <h3 class="text-gray-500 text-sm">Total Animals</h3>
+                        <h3 class="text-gray-500 text-sm">Total Subjects</h3>
                         <p class="text-2xl font-bold text-gray-800" id="total-animals-count">0</p>
                         <p class="text-gray-400 text-sm mt-2">+123 from last week</p>
                     </div>
@@ -156,18 +148,54 @@
                         <p class="text-gray-400 text-sm mt-2">3 high priority</p>
                     </div>
                 </div>
+<!-- Analytics Overview Section -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+    <!-- Weight Distribution -->
+    <div class="bg-white rounded-xl shadow-sm p-6">
+        <div class="flex justify-between items-center mb-6">
+            <h3 class="text-lg font-semibold text-gray-800">Weight Distribution</h3>
+            <span class="text-sm text-gray-500">10 subjects</span>
+        </div>
+        <div class="flex justify-center">
+            <canvas id="weightDistChart" width="400" height="300"></canvas>
+        </div>
+    </div>
 
-                <!-- Charts Row -->
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                    <div class="bg-white rounded-xl shadow-sm p-6">
-                        <h3 class="text-lg font-semibold text-gray-800 mb-4">Weight Distribution</h3>
-                        <canvas id="weightChart" height="300"></canvas>
-                    </div>
-                    
-                    <div class="bg-white rounded-xl shadow-sm p-6">
-                        <h3 class="text-lg font-semibold text-gray-800 mb-4">Emotional States</h3>
-                        <canvas id="emotionsChart" height="300"></canvas>
-                    </div>
+    <!-- Weight Growth Trend -->
+    <div class="bg-white rounded-xl shadow-sm p-6">
+        <div class="flex justify-between items-center mb-6">
+            <h3 class="text-lg font-semibold text-gray-800">Weight Growth Trend</h3>
+            <div class="flex items-center gap-2 text-sm">
+                <div class="flex items-center gap-1">
+                    <div class="w-3 h-3 rounded-full bg-blue-500"></div>
+                    <span>Area 1</span>
+                </div>
+                <div class="flex items-center gap-1">
+                    <div class="w-3 h-3 rounded-full bg-green-500"></div>
+                    <span>Area 2</span>
+                </div>
+            </div>
+        </div>
+        <div class="flex justify-center">
+            <canvas id="growthTrendChart" width="400" height="300"></canvas>
+        </div>
+    </div>
+
+    <!-- Emotional States -->
+    <div class="bg-white rounded-xl shadow-sm p-6">
+        <div class="flex justify-between items-center mb-6">
+            <h3 class="text-lg font-semibold text-gray-800">Emotional States</h3>
+            <div class="flex items-center gap-2 text-sm">
+                <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full">Area 1</span>
+                <span class="px-2 py-1 bg-green-100 text-green-800 rounded-full">Area 2</span>
+            </div>
+        </div>
+        <div class="flex justify-center">
+            <canvas id="emotionalStateChart" width="400" height="300"></canvas>
+        </div>
+    </div>
+</div>
+
                 </div>
 
                 <!-- Barns Overview -->
@@ -184,7 +212,7 @@
             <div class="flex justify-between items-start mb-4">
                 <div>
                     <h4 class="font-semibold text-gray-800">{{barn.name}}</h4>
-                    <p class="text-gray-500 text-sm">{{barn.total_animals}} animals</p>
+                    <p class="text-gray-500 text-sm">{{barn.total_animals}} subjects</p>
                 </div>
                 <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">
                     {{barn.status}}
@@ -535,7 +563,110 @@ async function fetchWeightHistory() {
         return null;
     }
 }
+document.addEventListener('DOMContentLoaded', function() {
+    // Weight Distribution Chart
+    const weightDistCtx = document.getElementById('weightDistChart').getContext('2d');
+    new Chart(weightDistCtx, {
+        type: 'bar',
+        data: {
+            labels: ['60-65kg', '65-70kg', '70-75kg', '75-80kg'],
+            datasets: [{
+                label: 'Subjects',
+                data: [2, 3, 3, 2],
+                backgroundColor: 'rgba(59, 130, 246, 0.8)',
+                borderRadius: 5
+            }]
+        },
+        options: {
+            responsive: false,
+            maintainAspectRatio: true,
+            height: 300,
+            width: 400,
+            plugins: {
+                legend: { display: false },
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: { stepSize: 1 }
+                }
+            },
+            animation: false
+        }
+    });
 
+    // Weight Growth Trend Chart
+    const growthTrendCtx = document.getElementById('growthTrendChart').getContext('2d');
+    new Chart(growthTrendCtx, {
+        type: 'line',
+        data: {
+            labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5', 'Week 6'],
+            datasets: [{
+                label: 'Area 1',
+                data: [65, 66.5, 68.2, 69.8, 71.3, 72.5],
+                borderColor: 'rgb(59, 130, 246)',
+                tension: 0.4
+            }, {
+                label: 'Area 2',
+                data: [64, 65.2, 66.8, 68.1, 69.5, 70.8],
+                borderColor: 'rgb(34, 197, 94)',
+                tension: 0.4
+            }, {
+                label: 'Expected',
+                data: [65, 66.8, 68.5, 70.2, 71.8, 73.5],
+                borderColor: 'rgb(156, 163, 175)',
+                borderDash: [5, 5],
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: false,
+            maintainAspectRatio: true,
+            height: 300,
+            width: 400,
+            plugins: {
+                legend: { display: false }
+            },
+            animation: false
+        }
+    });
+
+    // Emotional States Chart
+    const emotionalStateCtx = document.getElementById('emotionalStateChart').getContext('2d');
+    new Chart(emotionalStateCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Content', 'Alert', 'Relaxed', 'Anxious', 'Neutral'],
+            datasets: [{
+                data: [3, 1, 2, 1, 3],
+                backgroundColor: [
+                    'rgba(34, 197, 94, 0.8)',  // Verde
+                    'rgba(249, 115, 22, 0.8)', // Naranja
+                    'rgba(59, 130, 246, 0.8)', // Azul
+                    'rgba(239, 68, 68, 0.8)',  // Rojo
+                    'rgba(156, 163, 175, 0.8)' // Gris
+                ]
+            }]
+        },
+        options: {
+            responsive: false,
+            maintainAspectRatio: true,
+            height: 300,
+            width: 400,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        padding: 20,
+                        font: { size: 12 }
+                    }
+                }
+            },
+            cutout: '60%',
+            animation: false
+        }
+    });
+});
     </script>
 </body>
 </html>

@@ -1693,6 +1693,35 @@ def get_weight():
         app.logger.error(f"Error serving weight data: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/get_emotional_data')
+def get_emotional_data():
+    measurements_ref = db.collection('measurements')
+    measurements = measurements_ref.get()
+    
+    emotion_data = {}
+    confidence_sum = {}
+    
+    for measurement in measurements:
+        data = measurement.to_dict()
+        if 'facial_analysis' in data:
+            emotion = data['facial_analysis']['emotion']
+            confidence = data['facial_analysis']['emotion_confidence']
+            
+            if emotion in emotion_data:
+                emotion_data[emotion] += 1
+                confidence_sum[emotion] += confidence
+            else:
+                emotion_data[emotion] = 1
+                confidence_sum[emotion] = confidence
+    
+    # Calcular confianza promedio
+    for emotion in emotion_data:
+        confidence_sum[emotion] = confidence_sum[emotion] / emotion_data[emotion]
+        
+    return jsonify({
+        'emotions': emotion_data,
+        'confidence': confidence_sum
+    })
 
 
 @app.route('/live-monitoring')

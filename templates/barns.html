@@ -82,14 +82,14 @@
             <div class="bg-white shadow-sm">
                 <div class="flex justify-between items-center p-6">
                     <div>
-                        <h1 class="text-2xl font-bold text-gray-800">Barns Management</h1>
+                        <h1 class="text-2xl font-bold text-gray-800">Area Management</h1>
                         <p class="text-gray-600">Manage and monitor all your barns</p>
                     </div>
                     <button onclick="openAddBarnModal()" class="flex items-center space-x-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                             <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
                         </svg>
-                        <span>Add Barn</span>
+                        <span>Add area</span>
                     </button>
                 </div>
 
@@ -142,7 +142,7 @@
                 
                             <div class="grid grid-cols-2 gap-4 mb-4">
                                 <div>
-                                    <div class="text-gray-500 text-sm">Animals</div>
+                                    <div class="text-gray-500 text-sm">Subjects</div>
                                     <div class="font-semibold">{{ barn.current_count }} / {{ barn.capacity }}</div>
                                     <div class="text-sm {% if barn.count_change > 0 %}text-green-500{% else %}text-red-500{% endif %}">
                                         {% if barn.count_change > 0 %}+{% endif %}{{ barn.count_change }} this week
@@ -351,11 +351,11 @@
                     </span>
                 </div>
                 <div class="grid grid-cols-2 gap-4">
-                    <div class="text-gray-500 text-sm">Animals:</div>
+                    <div class="text-gray-500 text-sm">Subjects:</div>
                     <div>${barn.current_count} / ${barn.capacity}</div>
 
                     <div class="text-gray-500 text-sm">Avg. Age:</div>
-                    <div>${barn.avg_age || 0} months</div>
+                    <div>${barn.avg_age || 0} years</div>
 
                     <div class="text-gray-500 text-sm">Avg. Weight:</div>
                     <div>${barn.avg_weight || 0} kg</div>
